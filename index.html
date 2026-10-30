@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="材料库存">
-<meta name="theme-color" content="#00789C">
-<title>材料库存</title>
+<meta name="apple-mobile-web-app-title" content="生产控制台">
+<meta name="theme-color" content="#000000">
+<title>生产控制台</title>
 <script>
 /* ================== 只需要改这里 ==================
    在 Supabase 后台 → Project Settings → API（或 API Keys）里复制：
@@ -17,156 +17,387 @@ const SUPABASE_URL = 'https://fsujvrcvyypqjmysyduz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_v1syLtk_rleN_VScU_2Dbg_kDX2-Glj';
 /* ================================================= */
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
 <style>
+/* 主页：图二的便当卡片；计量库：高对比暗黑工业风 */
 :root{
-  --paper:#F4F6F8; --card:#FFFFFF; --ink:#14181D; --muted:#5B6472; --line:#DCE1E7;
-  --accent:#00789C; --accent-ink:#FFFFFF; --accent-soft:#E3F2F7;
-  --low:#B4470F; --low-bg:#FDEFE5; --zero:#B42318; --zero-bg:#FDECEA;
-  --c:#00A3D9; --m:#D6007E; --y:#F2C400; --k:#14181D;
-  --font-body:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
-  --font-num:"Barlow Condensed","DIN Alternate","Arial Narrow",system-ui,sans-serif;
-  color-scheme:light;
+  --bg:#000; --ink:#121212; --paper:#FFFFFF;
+  --forest:#173220; --lime:#D5F95C; --graphite:#242424; --peri:#93B3FF; --violet:#9D8CFF;
+  --orange:#FF7A33; --butter:#FFE57E; --green:#22A55B; --dotoff:#E6E6E6;
+  /* 计量库 */
+  --s-bg:#0A0A0A; --s-card:#151515; --s-line:#2A2A2A; --s-text:#F2F2F2; --s-muted:#8E8E8E;
+  --neon:#C8FF3D; --warn:#FF7A1A; --alarm:#FF4D4D; --volt:#9D8CFF; --blue:#6EA8FF;
+  --f-num:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Archivo","PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){:root{
-  --paper:#0E1115; --card:#171B21; --ink:#E8ECF1; --muted:#97A0AD; --line:#2A3038;
-  --accent:#3BB8E2; --accent-ink:#04202A; --accent-soft:#12303B;
-  --low:#FB9A55; --low-bg:#2D1B0F; --zero:#F87171; --zero-bg:#341617; --k:#E8ECF1; color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0}
-body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
-.wrap{max-width:680px;margin:0 auto;padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(110px + env(safe-area-inset-bottom,0px));
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-  display:flex;flex-direction:column;gap:14px}
-header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
-.reg{display:flex;gap:5px;margin-bottom:4px}
-.reg i{width:10px;height:10px;border-radius:50%;display:block}
-h1{margin:0;font-size:24px;font-weight:700}
-.sub{margin:0;color:var(--muted);font-size:13px}
-input,select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0;width:100%}
-input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px;touch-action:manipulation}
-button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
-button.danger{color:var(--zero);border-color:var(--zero)}
-button.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
-button:disabled{opacity:.45;cursor:not-allowed}
+html,body{margin:0;background:var(--bg)}
+body{color:var(--s-text);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;color:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--neon);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+/* ---------- 主页 ---------- */
+#home{max-width:1440px;margin:0 auto;padding-block:calc(20px + env(safe-area-inset-top,0px)) calc(28px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bento{display:grid;gap:18px;grid-template-columns:repeat(6,minmax(0,1fr));
+  grid-template-areas:"loss loss units units alert queue" "load urgent units units sat sat" "growth today more more cat cat" "trend trend time time cat cat"}
+.c{border-radius:26px;padding:22px 24px;display:flex;flex-direction:column;gap:10px;min-width:0;position:relative;overflow:hidden;border:0;text-align:left}
+.c h3{margin:0;font-size:16px;font-weight:600;letter-spacing:.01em;line-height:1.25}
+.c .sub{margin:0;font-size:12px;opacity:.68;line-height:1.3}
+.c .head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.big{font-family:var(--f-num);font-weight:500;letter-spacing:-.03em;line-height:.95;font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;border:0;white-space:nowrap;text-decoration:none}
+.tag{font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;border:1px solid currentColor;opacity:.55;white-space:nowrap}
+.arrow{font-size:20px;line-height:1}
+.white{background:var(--paper);color:var(--ink)}
+.dark{background:var(--graphite);color:#fff}
+.c-loss{grid-area:loss}.c-units{grid-area:units}.c-alert{grid-area:alert}.c-queue{grid-area:queue}
+.c-load{grid-area:load}.c-urgent{grid-area:urgent}.c-sat{grid-area:sat}.c-growth{grid-area:growth}
+.c-today{grid-area:today}.c-more{grid-area:more}.c-cat{grid-area:cat}.c-trend{grid-area:trend}.c-time{grid-area:time}
+
+.c-loss .big{font-size:clamp(34px,3.2vw,46px)}
+.dots{display:grid;grid-template-columns:repeat(15,1fr);gap:6px;margin-top:auto}
+.dots i{aspect-ratio:1;border-radius:50%;background:var(--dotoff);display:block}
+.dots i.on{background:var(--green)}
+.axis{display:flex;justify-content:space-between;font-size:12px;font-family:var(--f-num);opacity:.8}
+
+.c-units{background:var(--forest);color:#E9F5D8;cursor:pointer}
+.c-units h3{color:var(--lime)}
+.c-units .pill{background:var(--lime);color:#14200A}
+.rings{display:grid;place-items:center;flex:1;min-height:220px;position:relative}
+.rings svg{width:min(100%,300px);height:auto}
+.rings .mid{position:absolute;text-align:center;color:var(--lime)}
+.rings .mid .big{font-size:56px}
+.rings .mid small{display:block;font-size:12px;opacity:.85}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.legend li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid rgba(213,249,92,.14);font-size:14px}
+.legend li:first-child{border-top:0}
+.legend i{width:22px;height:10px;border-radius:6px;display:block}
+.legend b{font-family:var(--f-num);font-weight:500;font-variant-numeric:tabular-nums}
+
+.c-alert{background:var(--lime);color:#14200A;cursor:pointer}
+.c-alert .big{font-size:clamp(30px,2.6vw,40px);margin-top:auto;font-weight:600}
+.c-alert .big span{font-size:.55em;font-family:var(--f-body);font-weight:700;margin-left:4px}
+.c-alert .pill{background:#14200A;color:var(--lime);align-self:flex-start}
+.c-alert.ok .big span{font-size:.55em}
+
+.c-queue .q{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.c-queue .q li{display:flex;justify-content:space-between;gap:8px;color:#D9D9D9}
+.c-queue .q li b{font-family:var(--f-num);font-weight:500;color:#fff}
+.c-queue .q li:nth-child(n+5){opacity:.55}
+.c-queue .q li:nth-child(n+6){opacity:.3}
+
+.c-load svg,.c-trend svg{width:100%;height:auto;display:block;overflow:visible}
+.c-load .lg{display:flex;gap:10px;font-size:11px;flex-wrap:wrap}
+.c-load .lg span{display:inline-flex;align-items:center;gap:4px}
+.c-load .lg i{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+.c-urgent{background:var(--peri);color:#0F1A33}
+.c-urgent .ring{position:relative;display:grid;place-items:center;margin:4px auto 0;width:min(100%,150px)}
+.c-urgent .ring svg{width:100%;height:auto}
+.c-urgent .ring .big{position:absolute;font-size:40px}
+.c-urgent .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;font-size:12px;margin-top:auto}
+.c-urgent .pill{background:#0F1A33;color:#fff}
+
+.c-sat .big{font-size:clamp(34px,3.2vw,48px)}
+.satbars{display:flex;gap:5px;height:96px;margin-top:auto}
+.satbars i{background:#9DB8FF;border-radius:9px;display:block}
+.satbars i.track{background:#E7EEFF;flex:1}
+.c-sat .foot{display:flex;justify-content:space-between;font-size:12px;opacity:.75}
+
+.c-growth{background:var(--violet);color:#1B1340}
+.c-growth .big{font-size:clamp(30px,2.6vw,40px)}
+.gbars{display:flex;gap:6px;height:100px;margin-top:auto;align-items:flex-end}
+.gbars span{flex:1;height:100%;background:#B2A6FF;border-radius:10px;display:flex;align-items:flex-end;overflow:hidden}
+.gbars span i{display:block;width:100%;background:#4C3E99;border-radius:10px}
+.c-growth .foot{font-size:12px;display:flex;justify-content:space-between}
+
+.c-today .big{font-size:clamp(48px,5vw,76px);color:#FF6A2B}
+.c-today .big span{font-size:.45em;font-family:var(--f-body);font-weight:700;margin-left:2px}
+.c-today .foot{font-size:12px;opacity:.7;margin-top:auto}
+
+.c-more{background:var(--graphite);color:#fff;cursor:pointer;justify-content:space-between;min-height:190px}
+.c-more .label{font-size:13px;letter-spacing:.08em;font-weight:600;opacity:.85}
+.c-more .act span{white-space:nowrap}
+.c-more .act{font-size:clamp(24px,2.4vw,36px);font-weight:700;color:var(--butter);line-height:1.15}
+.c-more .plus{width:30px;height:30px;border-radius:50%;background:var(--butter);color:#111;display:grid;place-items:center;font-weight:700;font-size:20px}
+.c-more:hover .act{text-decoration:underline;text-underline-offset:6px}
+
+.c-cat{background:var(--orange);color:#1A0D05}
+.c-cat .big{font-size:clamp(44px,4.4vw,64px);font-weight:600}
+.c-cat .pill{background:#1A0D05;color:var(--orange)}
+.catchart{display:grid;grid-template-columns:auto 1fr;gap:10px;flex:1;min-height:260px;margin-top:6px}
+.catchart .yax{display:flex;flex-direction:column;justify-content:space-between;font-size:12px;font-family:var(--f-num);padding-bottom:26px;text-align:right}
+.catchart .cols{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.catchart .col{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+.catchart .bar{flex:1;width:min(100%,46px);background:#E3651F;border-radius:999px;display:flex;align-items:flex-end;overflow:hidden}
+.catchart .bar i{display:block;width:100%;background:#1A0D05;border-radius:999px}
+.catchart .col span{font-size:12px;font-weight:600;white-space:nowrap}
+
+.c-trend .big{font-size:clamp(30px,2.8vw,44px)}
+.c-time{background:var(--butter);color:#1A1505}
+.gauge{position:relative;margin-top:auto;display:grid;place-items:center}
+.gauge svg{width:min(100%,360px);height:auto}
+.gauge .big{position:absolute;bottom:4px;font-size:clamp(40px,4vw,60px)}
+.gauge .big span{font-size:.45em;font-family:var(--f-body);font-weight:700}
+.c-time .pill{background:#1A1505;color:var(--butter)}
+
+@media (max-width:1100px){
+  .bento{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:
+    "alert queue" "units units" "loss loss" "load urgent" "sat sat" "growth today" "more more" "cat cat" "trend trend" "time time"}
+}
+@media (max-width:420px){ .c{padding:18px;border-radius:22px} .bento{gap:12px} .c h3{font-size:15px} }
+
+/* ---------- 计量库（暗黑工业风） ---------- */
+#stock{background:var(--s-bg);min-height:100%}
+.swrap{max-width:820px;margin:0 auto;padding-block:calc(14px + env(safe-area-inset-top,0px)) calc(110px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.sbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sbar h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.01em;flex:1}
+.sbar h1 small{display:block;font-size:11px;font-weight:600;letter-spacing:.22em;color:var(--s-muted);font-family:var(--f-num)}
+.ghost{background:transparent;border:1.5px solid var(--s-line);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--s-text)}
+.ghost:hover{border-color:var(--s-text)}
+.kpis{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px}
+.k{border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;border:0;text-align:left;min-width:0}
+.k small{font-size:12px;font-weight:600;letter-spacing:.04em}
+.k .big{font-size:clamp(28px,4vw,40px);font-weight:600}
+.k .big span{font-size:.45em;font-family:var(--f-body);margin-left:3px}
+.k1{background:var(--s-card);border:1.5px solid var(--s-line)} .k1 .big{color:var(--neon)} .k1 small{color:var(--s-muted)}
+.k2{background:var(--alarm);color:#1A0505;cursor:pointer} .k3{background:var(--warn);color:#1A0B02;cursor:pointer} .k4{background:var(--volt);color:#140E33}
+.k2.zero{background:var(--s-card);color:var(--s-muted);border:1.5px solid var(--s-line)}
+.k3.zero{background:var(--s-card);color:var(--s-muted);border:1.5px solid var(--s-line)}
+.panel{background:var(--s-card);border:1.5px solid var(--s-line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{margin:0;font-size:17px}
+input,select{font:inherit;color:var(--s-text);background:#0D0D0D;border:1.5px solid #333;border-radius:12px;padding:10px 12px;min-width:0;width:100%}
+input::placeholder{color:#6A6A6A}
+.btn{border-radius:12px;border:1.5px solid var(--s-line);background:#1C1C1C;color:var(--s-text);padding:10px 14px;font-weight:600;touch-action:manipulation}
+.btn:hover{border-color:#555}
+.btn.primary{background:var(--neon);color:#0A0A0A;border-color:var(--neon)}
+.btn.danger{color:var(--alarm);border-color:var(--alarm);background:transparent}
+.btn:disabled{opacity:.4;cursor:not-allowed}
 .tools{display:flex;gap:8px}
 .tools input{flex:1}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{flex:none;padding:6px 12px;font-size:14px;border-radius:999px;background:var(--card)}
-.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-.chip b{font-weight:500;opacity:.6;margin-left:4px;font-variant-numeric:tabular-nums}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
-.panel h2{margin:0;font-size:16px}
+.chip{padding:6px 12px;font-size:13px;font-weight:600;border-radius:999px;background:transparent;border:1.5px solid var(--s-line);color:var(--s-text)}
+.chip[aria-pressed="true"]{background:var(--s-text);color:#0A0A0A;border-color:var(--s-text)}
+.chip b{font-weight:500;opacity:.55;margin-left:4px;font-family:var(--f-num)}
+.sum{margin:0;font-size:13px;color:var(--s-muted)} .sum b{color:var(--neon);font-family:var(--f-num)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .field{display:flex;flex-direction:column;gap:4px;min-width:0}
-.field label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.field label{font-size:12px;color:var(--s-muted);letter-spacing:.04em}
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
-.sum{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.sum b{color:var(--ink);font-weight:700}
-.price{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
-.cat{margin:10px 0 0;font-size:13px;color:var(--muted);font-weight:500;letter-spacing:.06em}
+.cat{margin:14px 0 2px;font-size:12px;color:var(--s-muted);font-weight:700;letter-spacing:.2em;display:flex;align-items:center;gap:10px}
+.cat::after{content:"";flex:1;height:1.5px;background:var(--s-line)}
 .list{display:flex;flex-direction:column;gap:8px}
-.item{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.item.low{border-color:var(--low)} .item.zero{border-color:var(--zero)}
-.main{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 10px 10px 14px}
-.info{min-width:0;display:flex;flex-direction:column;gap:1px}
-.name{font-weight:700;font-size:16px;overflow-wrap:anywhere;background:none;border:0;padding:0;text-align:left;border-radius:4px;color:var(--ink)}
-.meta{color:var(--muted);font-size:13px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.pill{font-size:12px;padding:0 8px;border-radius:999px;font-weight:500}
-.pill.low{background:var(--low-bg);color:var(--low)} .pill.zero{background:var(--zero-bg);color:var(--zero)}
-.qty{font-family:var(--font-num);font-weight:700;font-size:36px;line-height:1;font-variant-numeric:tabular-nums;text-align:right;min-width:2.2ch}
-.qty small{display:block;font-family:var(--font-body);font-size:12px;font-weight:400;color:var(--muted);margin-top:2px}
-.item.low .qty{color:var(--low)} .item.zero .qty{color:var(--zero)}
-.take{width:64px;height:64px;border-radius:14px;background:var(--accent);color:var(--accent-ink);border:0;font-family:var(--font-num);font-weight:700;font-size:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;padding:0}
-.take span{font-family:var(--font-body);font-size:11px;font-weight:500;margin-top:3px}
+.item{background:var(--s-card);border:1.5px solid var(--s-line);border-radius:18px;overflow:hidden}
+.item.low{border-color:var(--warn)} .item.zero{border-color:var(--alarm)}
+.main{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:12px 12px 12px 16px}
+.info{min-width:0;display:flex;flex-direction:column;gap:2px}
+.name{font-weight:700;font-size:16px;overflow-wrap:anywhere;background:none;border:0;padding:0;text-align:left;border-radius:4px;color:var(--s-text)}
+.meta{color:var(--s-muted);font-size:12.5px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.price{color:#D8D8D8;font-weight:600;font-family:var(--f-num)}
+.badge{font-size:11px;padding:1px 8px;border-radius:999px;font-weight:700}
+.badge.low{background:var(--warn);color:#1A0B02} .badge.zero{background:var(--alarm);color:#1A0505}
+.qty{font-family:var(--f-num);font-weight:600;font-size:42px;line-height:.9;text-align:right;min-width:2ch;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.qty small{display:block;font-family:var(--f-body);font-size:11px;font-weight:600;color:var(--s-muted);margin-top:4px;letter-spacing:0}
+.item.low .qty{color:var(--warn)} .item.zero .qty{color:var(--alarm)}
+.take{width:66px;height:66px;border-radius:16px;background:var(--neon);color:#0A0A0A;border:0;font-family:var(--f-num);font-weight:700;font-size:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;padding:0}
+.take span{font-family:var(--f-body);font-size:11px;font-weight:700;margin-top:3px}
 .take:active{transform:scale(.94)}
-.more{border-top:1px dashed var(--line);padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--paper)}
-.more .line{display:flex;gap:8px;align-items:center}
-.more .line input{width:96px;flex:none}
-.hint{font-size:12px;color:var(--muted)}
-.empty{text-align:center;padding:28px 16px;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:14px}
-.notice{padding:10px 14px;border-radius:10px;background:var(--low-bg);color:var(--low);font-size:14px}
-.log h2{margin:8px 0;font-size:15px;color:var(--muted);font-weight:500}
-.log ul{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:14px}
-.log li{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:14px}
+.take:disabled{background:#2A2A2A;color:#666}
+.more{border-top:1.5px dashed var(--s-line);padding:14px 16px;display:flex;flex-direction:column;gap:12px;background:#101010}
+.more .line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.more .line input{width:110px;flex:none}
+.hint{font-size:12px;color:var(--s-muted)}
+.empty{text-align:center;padding:28px 16px;color:var(--s-muted);border:1.5px dashed var(--s-line);border-radius:18px}
+.notice{padding:10px 14px;border-radius:12px;background:var(--warn);color:#1A0B02;font-size:14px;font-weight:600}
+.log h2{margin:10px 0;font-size:12px;color:var(--s-muted);font-weight:700;letter-spacing:.2em}
+.log ul{list-style:none;margin:0;padding:0;border:1.5px solid var(--s-line);border-radius:18px;background:var(--s-card)}
+.log li{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:9px 14px;border-top:1.5px solid var(--s-line);font-size:14px}
 .log li:first-child{border-top:0}
-.log li.undone{opacity:.45;text-decoration:line-through}
-.log time{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px;line-height:1.3}
-.log .d{font-family:var(--font-num);font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.log .d.neg{color:var(--m)} .log .d.pos{color:var(--accent)}
-.log .n{min-width:0;overflow-wrap:anywhere}
-.log .n small{color:var(--muted)}
-.log button{padding:4px 10px;font-size:13px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 10px 10px 16px;border-radius:12px;display:flex;gap:12px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px);z-index:20}
-.toast button{background:transparent;color:var(--paper);border-color:var(--muted);padding:6px 12px}
-#login{max-width:380px;margin:12vh auto 0}
-@media (max-width:420px){.qty{font-size:30px}.take{width:58px;height:58px}.main{gap:8px}.grid2{grid-template-columns:1fr}}
+.log li.undone{opacity:.4;text-decoration:line-through}
+.log time{color:var(--s-muted);font-family:var(--f-num);font-size:12px;line-height:1.3}
+.log .d{font-family:var(--f-num);font-weight:700;font-size:20px;white-space:nowrap}
+.log .d.neg{color:var(--warn)} .log .d.pos{color:var(--neon)}
+.log .n{min-width:0;overflow-wrap:anywhere} .log .n small{color:var(--s-muted)}
+.log button{padding:4px 10px;font-size:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--s-text);color:#0A0A0A;padding:10px 10px 10px 16px;border-radius:14px;display:flex;gap:12px;align-items:center;max-width:calc(100% - 32px);z-index:20;font-weight:600}
+.toast button{background:#0A0A0A;color:var(--neon);border:0;border-radius:10px;padding:6px 12px;font-weight:700}
+#loginWrap{min-height:100vh;display:grid;place-items:center;padding:16px}
+#login{width:min(100%,380px)}
+#login h2{font-size:26px}
+@media (max-width:600px){
+  .kpis{grid-template-columns:1fr 1fr} .k1{grid-column:1 / -1}
+  .qty{font-size:34px} .take{width:58px;height:58px} .main{gap:10px} .grid2{grid-template-columns:1fr}
+}
 @media (prefers-reduced-motion:reduce){.take:active{transform:none}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <div class="reg" aria-hidden="true"><i style="background:var(--c)"></i><i style="background:var(--m)"></i><i style="background:var(--y)"></i><i style="background:var(--k)"></i></div>
-      <h1>材料库存</h1>
-      <p class="sub" id="sub">取一件点一次 −1，所有人看到的数字同步更新</p>
-    </div>
-    <button class="ghost" id="menuBtn" type="button" hidden>设置</button>
-  </header>
 
-  <div id="notice" class="notice" hidden></div>
-
-  <form id="login" class="panel" hidden>
-    <h2>进入库存</h2>
+<div id="loginWrap" hidden>
+  <form id="login" class="panel">
+    <h2>进入控制台</h2>
+    <div id="notice0" class="notice" hidden></div>
     <div class="field"><label for="lCode">厂里口令</label><input id="lCode" type="password" autocomplete="current-password" required></div>
     <div class="field"><label for="lWho">你的名字（记录谁取的货，可不填）</label><input id="lWho" maxlength="20" autocomplete="nickname"></div>
-    <button class="primary" type="submit">进入</button>
+    <button class="btn primary" type="submit">进入</button>
   </form>
+</div>
+
+<!-- ================= 主页 ================= -->
+<main id="home" hidden>
+  <div class="bento">
+    <section class="c white c-loss">
+      <div class="head"><div><h3>材料损耗与废料率</h3><p class="sub">本月，逐日排版降低损耗</p></div><span class="big num" id="lossRate">4.2%</span></div>
+      <div class="dots" id="lossDots"></div>
+      <div class="axis"><span>01</span><span>05</span><span>10</span><span>15</span><span>20</span><span>25</span><span>30</span></div>
+      <span class="tag" style="align-self:flex-start">示例数据</span>
+    </section>
+
+    <section class="c c-units" data-go="stock" role="link" tabindex="0" aria-label="进入计量库">
+      <div class="head"><div><h3>计量单位库存占比</h3><p class="sub">按库存价值，实时</p></div><span class="pill">进入计量库 ↗</span></div>
+      <div class="rings"><svg viewBox="0 0 240 240" id="ringSvg" aria-hidden="true"></svg>
+        <div class="mid"><span class="big num" id="ringNum">–</span><small>项材料</small></div></div>
+      <ul class="legend" id="ringLegend"></ul>
+    </section>
+
+    <section class="c c-alert" id="alertCard" data-go="stock-low" role="link" tabindex="0">
+      <h3>断货与低库存预警</h3>
+      <div class="big num" id="alertBig">–</div>
+      <p class="sub" id="alertSub"></p>
+      <span class="pill" id="alertPill">急需采购 ↗</span>
+    </section>
+
+    <section class="c dark c-queue">
+      <div class="head"><h3>后道工艺与加工队列</h3><span class="tag">示例</span></div>
+      <ul class="q">
+        <li>覆哑膜 / 亮光膜<b>85%</b></li><li>胶条 / 魔术贴缝纫<b>72%</b></li><li>亚克力 / 发泡板立体字<b>85%</b></li>
+        <li>3D 包边字 / 无边字<b>50%</b></li><li>铝合金卡布型材组装<b>30%</b></li><li>CNC 雕切<b>15%</b></li>
+      </ul>
+    </section>
+
+    <section class="c dark c-load">
+      <div class="head"><h3>工序负荷趋势（24h）</h3><span class="tag">示例</span></div>
+      <svg viewBox="0 0 220 120" id="loadSvg" aria-hidden="true"></svg>
+      <div class="lg"><span><i style="background:var(--lime)"></i>喷绘</span><span><i style="background:var(--orange)"></i>后期</span><span><i style="background:var(--peri)"></i>裁切</span></div>
+    </section>
+
+    <section class="c c-urgent">
+      <div class="head"><h3>加急订单占比</h3><span class="tag">示例</span></div>
+      <div class="ring"><svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="48" fill="none" stroke="#C3D4FF" stroke-width="9"/>
+        <circle cx="60" cy="60" r="48" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-dasharray="144.8 301.6" transform="rotate(-90 60 60)"/></svg>
+        <span class="big num">48%</span></div>
+      <div class="foot"><span>23 笔加急单倒计时</span><span class="pill">加急通道 ↗</span></div>
+    </section>
+
+    <section class="c white c-sat">
+      <div class="head"><div><h3>后道工序饱和度（㎡/m）</h3><p class="sub">包含裱贴与板材工艺</p></div><span class="big num">+2,840</span></div>
+      <div class="satbars" id="satBars"></div>
+      <div class="foot"><span>覆膜、缝纫、打磨等后道工序队列</span><span class="tag">示例</span></div>
+    </section>
+
+    <section class="c c-growth">
+      <div class="head"><h3>订单增长率</h3><span class="arrow">↗</span></div>
+      <div class="big num">8.9%</div>
+      <div class="gbars"><span><i style="height:62%"></i></span><span><i style="height:42%"></i></span><span><i style="height:86%"></i></span><span><i style="height:55%"></i></span></div>
+      <div class="foot"><span>过去 7 天</span><span class="tag">示例</span></div>
+    </section>
+
+    <section class="c white c-today">
+      <div class="head"><h3>今日接单数</h3><span class="tag">示例</span></div>
+      <div class="big num" style="margin-top:auto">126<span>笔</span></div>
+      <div class="foot">含加急单 24 笔</div>
+    </section>
+
+    <section class="c c-more" data-go="stock-add" role="link" tabindex="0">
+      <div class="head"><span class="label">FOR MORE</span><span class="plus">+</span></div>
+      <div class="act"><span>+ 录入新订单 /</span> <span>新增物料入库</span></div>
+    </section>
+
+    <section class="c c-cat">
+      <div class="head"><div><h3>五大核心品类库存价值</h3><p class="sub">按发票出厂价，实时</p></div><span class="pill" data-go="stock" role="link" tabindex="0">计量库 ↗</span></div>
+      <div class="big num" id="catTotal">–</div>
+      <div class="catchart"><div class="yax" id="catAxis"></div><div class="cols" id="catCols"></div></div>
+    </section>
+
+    <section class="c dark c-trend">
+      <div class="head"><h3>订单增长趋势（月）</h3><span class="tag">示例</span></div>
+      <div class="big num">1.5K+</div>
+      <svg viewBox="0 0 400 130" id="trendSvg" aria-hidden="true"></svg>
+    </section>
+
+    <section class="c c-time">
+      <div class="head"><div><h3>打样到成品平均耗时</h3><p class="sub">包含各非标加工</p></div><span class="tag">示例</span></div>
+      <div class="gauge"><svg viewBox="0 0 320 170" id="gaugeSvg" aria-hidden="true"></svg><span class="big num">78<span>分钟</span></span></div>
+    </section>
+  </div>
+</main>
+
+<!-- ================= 计量库 ================= -->
+<div id="stock" hidden>
+ <div class="swrap">
+  <div class="sbar">
+    <button class="ghost" type="button" data-go="home">← 控制台</button>
+    <h1><small>INVENTORY</small>计量库</h1>
+    <button class="ghost" id="menuBtn" type="button">设置</button>
+  </div>
+
+  <div id="notice" class="notice" hidden></div>
 
   <form id="settings" class="panel" hidden>
     <h2>设置</h2>
     <div class="field"><label for="sWho">你的名字</label><input id="sWho" maxlength="20"></div>
     <div class="field"><label for="sCode">新口令（不改就留空，至少 4 位）</label><input id="sCode" type="password" autocomplete="new-password"></div>
     <div class="row">
-      <button type="button" id="exportBtn">导出表格</button>
-      <button type="button" id="logoutBtn">退出</button>
-      <button type="submit" class="primary">保存</button>
+      <button type="button" class="btn" id="exportBtn">导出表格</button>
+      <button type="button" class="btn" id="logoutBtn">退出</button>
+      <button type="submit" class="btn primary">保存</button>
     </div>
   </form>
 
-  <div id="app" hidden>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div class="tools">
-        <input id="search" type="search" placeholder="搜索材料、规格、编号" autocomplete="off">
-        <button id="addBtn" class="primary" type="button">＋ 新材料</button>
-      </div>
-      <div class="chips" id="chips" role="toolbar" aria-label="分类"></div>
-      <p class="sum" id="sum" hidden></p>
-    </div>
-
-    <form id="addForm" class="panel" hidden style="margin-top:12px">
-      <h2>添加新材料</h2>
-      <div class="grid2">
-        <div class="field"><label for="fName">名称</label><input id="fName" required></div>
-        <div class="field"><label for="fSpec">规格（可选）</label><input id="fSpec" placeholder="如：3.2×50m"></div>
-        <div class="field"><label for="fCat">分类</label><select id="fCat"></select></div>
-        <div class="field"><label for="fUnit">单位</label><input id="fUnit" value="卷" list="units"></div>
-        <div class="field"><label for="fQty">现有数量</label><input id="fQty" type="number" inputmode="decimal" min="0" step="any" value="0"></div>
-        <div class="field"><label for="fLow">少于等于多少提醒</label><input id="fLow" type="number" inputmode="decimal" min="0" step="any" value="1"></div>
-      </div>
-      <div class="row"><button type="button" id="cancelAdd">取消</button><button type="submit" class="primary">保存</button></div>
-    </form>
-
-    <div id="list" class="list" style="margin-top:12px"></div>
-
-    <section class="log" id="logSec" hidden>
-      <h2>最近记录</h2>
-      <ul id="log"></ul>
-    </section>
+  <div class="kpis">
+    <div class="k k1"><small>库存价值</small><span class="big num" id="kValue">–</span><small id="kCount"></small></div>
+    <button class="k k2" type="button" data-filter="偏少"><small>缺货</small><span class="big num" id="kZero">–</span></button>
+    <button class="k k3" type="button" data-filter="偏少"><small>偏少</small><span class="big num" id="kLow">–</span></button>
+    <div class="k k4"><small>今日取货</small><span class="big num" id="kToday">–</span></div>
   </div>
+
+  <div class="tools">
+    <input id="search" type="search" placeholder="搜索材料、规格、编号" autocomplete="off">
+    <button id="addBtn" class="btn primary" type="button">＋ 新材料</button>
+  </div>
+  <div class="chips" id="chips" role="toolbar" aria-label="分类"></div>
+  <p class="sum" id="sum" hidden></p>
+
+  <form id="addForm" class="panel" hidden>
+    <h2>新增物料入库</h2>
+    <div class="grid2">
+      <div class="field"><label for="fName">名称</label><input id="fName" required></div>
+      <div class="field"><label for="fSpec">规格（可选）</label><input id="fSpec" placeholder="如：3.2×50m"></div>
+      <div class="field"><label for="fCat">分类</label><select id="fCat"></select></div>
+      <div class="field"><label for="fUnit">单位</label><input id="fUnit" value="卷" list="units"></div>
+      <div class="field"><label for="fQty">现有数量</label><input id="fQty" type="number" inputmode="decimal" min="0" step="any" value="0"></div>
+      <div class="field"><label for="fLow">少于等于多少提醒</label><input id="fLow" type="number" inputmode="decimal" min="0" step="any" value="1"></div>
+    </div>
+    <div class="row"><button type="button" class="btn" id="cancelAdd">取消</button><button type="submit" class="btn primary">保存</button></div>
+  </form>
+
+  <div id="list" class="list"></div>
+
+  <section class="log" id="logSec" hidden>
+    <h2>最近记录</h2>
+    <ul id="log"></ul>
+  </section>
+ </div>
 </div>
+
 <datalist id="units"><option value="卷"><option value="张"><option value="根"><option value="个"><option value="瓶"><option value="箱"><option value="件"></datalist>
 <div id="toast" class="toast" hidden role="status"><span id="toastText"></span><button type="button" id="toastUndo">撤销</button></div>
 
@@ -177,11 +408,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const fmt = n => { n = Number(n) || 0; return Number.isInteger(n) ? String(n) : String(+n.toFixed(2)); };
 const hasPrice = it => it.price !== null && it.price !== undefined && it.price !== '';
 const money = n => '¥' + (Number(n) || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+const wan = n => { n = Number(n) || 0; return n >= 10000 ? '¥' + (n / 10000).toFixed(1) + '<span>万</span>' : money(n); };
 const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch { return ''; } },
                 set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch {} } };
 
 let code = store.get('stock_code'), who = store.get('stock_who');
-let items = [], moves = [], cat = '全部', q = '', openId = null, confirmDel = null;
+let items = [], moves = [], cat = '全部', q = '', openId = null, confirmDel = null, loaded = false;
 let busy = 0, chain = Promise.resolve(), pollTimer = null;
 
 const ERR = { wrong_code:'口令不对', not_enough:'库存不够，不能再减', not_found:'这个材料已被删除', cannot_undo:'这条记录不能撤销',
@@ -205,7 +437,7 @@ async function rpc(fn, args){
   if (!r.ok) throw new Error((j && (j.message || j.hint)) || ('HTTP ' + r.status));
   return j;
 }
-function notice(t){ const n = $('#notice'); n.textContent = t || ''; n.hidden = !t; }
+function notice(t){ for (const id of ['#notice', '#notice0']) { const n = $(id); n.textContent = t || ''; n.hidden = !t; } }
 
 let toastTimer = null, toastUndo = null;
 function toast(text, undoFn){
@@ -218,9 +450,9 @@ $('#toastUndo').addEventListener('click', () => { $('#toast').hidden = true; if 
 async function load(){
   if (busy) return;
   try {
-    const [it, mv] = await Promise.all([ rpc('api_items', { p_code: code }), rpc('api_moves', { p_code: code, p_limit: 40 }) ]);
+    const [it, mv] = await Promise.all([ rpc('api_items', { p_code: code }), rpc('api_moves', { p_code: code, p_limit: 300 }) ]);
     if (busy) return;               // 有操作进行中，等它完成后再刷新
-    items = it || []; moves = mv || []; notice(''); render();
+    items = it || []; moves = mv || []; loaded = true; notice(''); renderAll();
   } catch (e) {
     if (String(e.message).includes('wrong_code')) { logout('口令已更改，请重新输入'); return; }
     notice(errText(e));
@@ -229,7 +461,7 @@ async function load(){
 function queue(fn){ busy++; chain = chain.then(fn).catch(e => { notice(errText(e)); }).finally(() => { if (--busy === 0) load(); }); }
 
 function adjust(it, delta, kind){
-  it.qty = Number(it.qty) + delta; render();            // 先在本机显示
+  it.qty = Number(it.qty) + delta; renderAll();            // 先在本机显示
   queue(async () => {
     await rpc('api_adjust', { p_code: code, p_item: it.id, p_delta: delta, p_kind: kind, p_who: who });
   });
@@ -246,15 +478,107 @@ function undoLatest(itemId, kind, delta){
   toast('已撤销');
 }
 
-/* ---------- 显示 ---------- */
+/* ---------- 共用计算 ---------- */
 function state(it){ const n = Number(it.qty), low = Number(it.low); return n <= 0 ? 'zero' : (n <= low ? 'low' : ''); }
+const value = it => hasPrice(it) ? Number(it.price) * Math.max(0, Number(it.qty)) : 0;
+const isToday = d => { const t = new Date(d), n = new Date(); return t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() && t.getDate() === n.getDate(); };
+function unitClass(it){
+  if (it.unit === '张') return 1;
+  if (it.unit === '根' || /元\/米/.test(it.price_note || '')) return 2;
+  if (it.unit === '卷' && (it.category === '布料' || it.category === '膜/背胶')) return 0;
+  return 3;
+}
+function renderAll(){ if (view() === 'home') renderHome(); else render(); }
+
+/* ---------- 主页 ---------- */
+const svgNS = 'http://www.w3.org/2000/svg';
+function smooth(pts){ // Catmull-Rom → 三次贝塞尔
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+function drawStatic(){
+  // 损耗点阵（示例）
+  const h = [3,4,4,3,5,4,5,4,4,5,3,4,5,4,4];
+  let dots = '';
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 15; c++) dots += `<i class="${5 - r <= h[c] ? 'on' : ''}"></i>`;
+  $('#lossDots').innerHTML = dots;
+  // 工序负荷（示例）
+  const xs = [10, 70, 130, 190], grid = [20, 50, 80, 110].map(y => `<line x1="0" x2="220" y1="${y}" y2="${y}" stroke="#3a3a3a" stroke-width="1"/>`).join('');
+  const series = [[['#D5F95C'], [95, 55, 30, 70]], [['#FF7A33'], [100, 70, 25, 45]], [['#93B3FF'], [105, 85, 60, 85]]];
+  $('#loadSvg').innerHTML = grid + series.map(([[c], ys]) => `<path d="${smooth(xs.map((x, i) => [x, ys[i]]))}" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/>`).join('')
+    + ['00:00', '06:00', '12:00', '18:00'].map((t, i) => `<text x="${xs[i]}" y="126" fill="#9a9a9a" font-size="10" text-anchor="middle" font-family="Archivo,sans-serif">${t}</text>`).join('');
+  // 饱和度条（示例）
+  $('#satBars').innerHTML = [1, 1, 1, 1.1, 1.3, 1.6, 2, 5.2].map(w => `<i style="flex:${w}"></i>`).join('') + '<i class="track"></i>';
+  // 订单月趋势（示例）
+  const tx = [30, 140, 260, 370], ty = [3.1, 2.2, 4.6, 1.6], Y = v => 110 - v / 5 * 100;
+  const tg = [1, 2, 3, 4, 5].map(v => `<line x1="24" x2="400" y1="${Y(v)}" y2="${Y(v)}" stroke="#3a3a3a"/><text x="0" y="${Y(v) + 4}" fill="#9a9a9a" font-size="11" font-family="Archivo,sans-serif">${v}K</text>`).join('');
+  $('#trendSvg').innerHTML = tg + `<path d="${smooth(tx.map((x, i) => [x, Y(ty[i])]))}" fill="none" stroke="#D5F95C" stroke-width="4" stroke-linecap="round"/>`
+    + tx.map((x, i) => `<circle cx="${x}" cy="${Y(ty[i])}" r="6" fill="#D5F95C"/>`).join('')
+    + ['1-3月', '4-6月', '7-9月', '10-12月'].map((t, i) => `<text x="${tx[i]}" y="128" fill="#cfcfcf" font-size="11" text-anchor="middle" font-family="Archivo,sans-serif">${t}</text>`).join('');
+  // 耗时仪表（示例）
+  let g = ''; const N = 44, filled = Math.round(N * .78);
+  for (let i = 0; i <= N; i++) {
+    const a = Math.PI - Math.PI * i / N, c = Math.cos(a), s = Math.sin(a);
+    g += `<line x1="${160 + c * 108}" y1="${160 - s * 108}" x2="${160 + c * 150}" y2="${160 - s * 150}" stroke="${i <= filled ? '#1A1505' : '#D8C470'}" stroke-width="${i <= filled ? 4 : 3}" stroke-linecap="round"/>`;
+  }
+  $('#gaugeSvg').innerHTML = g;
+}
+function renderHome(){
+  if (!loaded) return;
+  // 计量单位占比（实时）
+  const labels = ['面积类（卷材·㎡）', '板材类（张）', '长度类（型材·米）', '其他'];
+  const colors = ['#D5F95C', '#A9C94B', '#6E9440', '#3F6232'];
+  const sums = [0, 0, 0, 0], counts = [0, 0, 0, 0];
+  for (const it of items) { const k = unitClass(it); sums[k] += value(it); counts[k]++; }
+  const useVal = sums.some(v => v > 0), base = useVal ? sums : counts, total = base.reduce((a, b) => a + b, 0) || 1;
+  const pct = base.map(v => v / total * 100);
+  const radii = [104, 84, 64, 44];
+  $('#ringSvg').innerHTML = radii.map((r, i) => {
+    const C = 2 * Math.PI * r, L = C * pct[i] / 100;
+    return `<circle cx="120" cy="120" r="${r}" fill="none" stroke="rgba(213,249,92,.08)" stroke-width="12"/>`
+      + (L > 0 ? `<circle cx="120" cy="120" r="${r}" fill="none" stroke="${colors[i]}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${Math.max(L - 0.01, 0.01)} ${C}" transform="rotate(-90 120 120)"/>` : '');
+  }).join('');
+  $('#ringNum').textContent = items.length;
+  $('#ringLegend').innerHTML = labels.map((l, i) => `<li><i style="background:${colors[i]}"></i><span>${l}</span><b>${Math.round(pct[i])}%</b></li>`).join('');
+  // 断货预警（实时）
+  const zero = items.filter(i => state(i) === 'zero').length, low = items.filter(i => state(i) === 'low').length;
+  $('#alertBig').innerHTML = zero ? `${zero}<span>种材料缺货</span>` : (low ? `${low}<span>种库存偏少</span>` : `0<span>种缺货</span>`);
+  $('#alertSub').textContent = zero ? (low ? `另有 ${low} 种库存偏少` : '其余材料库存正常') : (low ? '暂无缺货' : '库存充足，暂无预警');
+  $('#alertPill').textContent = zero || low ? '急需采购 ↗' : '查看计量库 ↗';
+  // 品类库存价值（实时）
+  const byCat = {}; for (const it of items) byCat[it.category] = (byCat[it.category] || 0) + value(it);
+  const top = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const totalVal = items.reduce((s, i) => s + value(i), 0);
+  $('#catTotal').innerHTML = totalVal ? wan(totalVal) : '<span style="font-size:.4em">数据库还没有价格</span>';
+  const maxV = Math.max(...top.map(t => t[1]), 1), step = niceStep(maxV / 5), axisMax = step * 5;
+  $('#catAxis').innerHTML = [5, 4, 3, 2, 1, 0].map(k => `<span>${axisLabel(step * k)}</span>`).join('');
+  $('#catCols').innerHTML = top.map(([c, v]) => `<div class="col"><div class="bar" title="${esc(c)} ${money(v)}"><i style="height:${v / axisMax * 100}%"></i></div><span>${esc(c.split('/')[0])}</span></div>`).join('');
+}
+function niceStep(x){ if (x <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(x))), f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+function axisLabel(v){ return v >= 10000 ? (v / 10000 % 1 ? (v / 10000).toFixed(1) : v / 10000) + '万' : v >= 1000 ? v / 1000 + 'K' : String(v); }
+
+/* ---------- 计量库 ---------- */
 function renderChips(){
   const count = c => c === '全部' ? items.length : c === '偏少' ? items.filter(i => state(i)).length : items.filter(i => i.category === c).length;
   const cats = ['全部', '偏少', ...CATS.filter(c => items.some(i => i.category === c)), ...[...new Set(items.map(i => i.category))].filter(c => !CATS.includes(c))];
-  $('#chips').innerHTML = cats.map(c => `<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${c === cat}">${esc(c === '偏少' ? '库存偏少' : c)}<b>${count(c)}</b></button>`).join('');
+  $('#chips').innerHTML = cats.map(c => `<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${c === cat}">${esc(c === '偏少' ? '缺货/偏少' : c)}<b>${count(c)}</b></button>`).join('');
+}
+function renderKpis(){
+  const totalVal = items.reduce((s, i) => s + value(i), 0);
+  const zero = items.filter(i => state(i) === 'zero').length, low = items.filter(i => state(i) === 'low').length;
+  const today = moves.filter(m => m.kind === '取货' && !m.undone && isToday(m.created_at)).length;
+  $('#kValue').innerHTML = items.some(hasPrice) ? wan(totalVal) : '–';
+  $('#kCount').textContent = `${items.length} 项材料`;
+  $('#kZero').innerHTML = `${zero}<span>种</span>`; $('.k2').classList.toggle('zero', !zero);
+  $('#kLow').innerHTML = `${low}<span>种</span>`; $('.k3').classList.toggle('zero', !low);
+  $('#kToday').innerHTML = `${today}<span>次</span>`;
 }
 function render(){
-  renderChips();
+  renderChips(); renderKpis();
   const list = $('#list');
   const keep = {}; list.querySelectorAll('.more input,.more select').forEach(i => { keep[i.id] = i.value; });
   const focusId = list.contains(document.activeElement) ? document.activeElement.id : null;
@@ -263,9 +587,10 @@ function render(){
     && words.every(w => (it.name + ' ' + it.spec + ' ' + it.code).toLowerCase().includes(w)));
   const priced = shown.filter(hasPrice), sum = $('#sum');
   sum.hidden = !items.length;
-  sum.innerHTML = `${cat === '全部' ? '全部' : esc(cat === '偏少' ? '库存偏少' : cat)} ${shown.length} 项`
-    + (priced.length ? ` · 库存价值 <b>${money(priced.reduce((s, i) => s + Number(i.price) * Number(i.qty), 0))}</b>`
+  sum.innerHTML = `${cat === '全部' ? '全部' : esc(cat === '偏少' ? '缺货/偏少' : cat)} ${shown.length} 项`
+    + (priced.length ? ` · 库存价值 <b>${money(priced.reduce((s, i) => s + value(i), 0))}</b>`
       + (priced.length < shown.length ? `（${shown.length - priced.length} 项未填价格）` : '') : '');
+  if (!loaded) { list.innerHTML = '<div class="empty">正在读取库存…</div>'; return; }
   if (!items.length) { list.innerHTML = '<div class="empty">还没有材料。点“＋ 新材料”添加。</div>'; renderLog(); return; }
   if (!shown.length) { list.innerHTML = '<div class="empty">没有符合条件的材料</div>'; renderLog(); return; }
   let html = '', lastCat = null;
@@ -280,22 +605,22 @@ function render(){
 }
 function card(it){
   const n = Number(it.qty), st = state(it), id = esc(it.id);
-  const pill = st === 'zero' ? '<span class="pill zero">缺货</span>' : st === 'low' ? '<span class="pill low">偏少</span>' : '';
+  const badge = st === 'zero' ? '<span class="badge zero">缺货</span>' : st === 'low' ? '<span class="badge low">偏少</span>' : '';
   const meta = [it.spec, it.code].filter(Boolean).map(esc).join(' · ')
     + (hasPrice(it) ? `<span class="price">${money(it.price)}/${esc(it.unit)}</span>` : '');
   const open = openId === it.id;
   return `<div class="item ${st}" data-id="${id}">
     <div class="main">
       <div class="info"><button class="name" data-act="toggle" aria-expanded="${open}">${esc(it.name)}</button>
-        <div class="meta">${meta}${pill}</div></div>
+        <div class="meta">${meta}${badge}</div></div>
       <div class="qty">${fmt(n)}<small>${esc(it.unit)}</small></div>
       <button class="take" data-act="take" ${n >= 1 ? '' : 'disabled'} aria-label="${esc(it.name)} 取一${esc(it.unit)}">−1<span>取货</span></button>
     </div>
     ${open ? `<div class="more">
       <div class="line"><input id="amt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="数量">
-        <button data-act="in">入库 ＋</button><button data-act="out">出库 −</button></div>
+        <button class="btn" data-act="in">入库 ＋</button><button class="btn" data-act="out">出库 −</button></div>
       <div class="line"><input id="cnt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${fmt(n)}">
-        <button data-act="count">盘点：改成实际数量</button></div>
+        <button class="btn" data-act="count">盘点：改成实际数量</button></div>
       <div class="grid2">
         <div class="field"><label for="en-${id}">名称</label><input id="en-${id}" value="${esc(it.name)}"></div>
         <div class="field"><label for="es-${id}">规格</label><input id="es-${id}" value="${esc(it.spec)}"></div>
@@ -305,10 +630,10 @@ function card(it){
         <div class="field"><label for="ep-${id}">单价（元/${esc(it.unit)}）</label><input id="ep-${id}" type="number" inputmode="decimal" min="0" step="any" value="${hasPrice(it) ? fmt(it.price) : ''}" placeholder="未填"></div>
         <div class="field"><label for="en2-${id}">价格备注</label><input id="en2-${id}" value="${esc(it.price_note || '')}" placeholder="如：14.4元/㎡"></div>
       </div>
-      ${hasPrice(it) ? `<div class="hint">这项库存价值 ${money(Number(it.price) * n)}</div>` : ''}
+      ${hasPrice(it) ? `<div class="hint">这项库存价值 ${money(value(it))}</div>` : ''}
       <div class="row">${confirmDel === it.id
-        ? `<span class="hint">确定删除“${esc(it.name)}”？</span><button data-act="delno">不删</button><button class="danger" data-act="delyes">确定删除</button>`
-        : `<button class="danger" data-act="del">删除</button>`}<button class="primary" data-act="save">保存修改</button></div>
+        ? `<span class="hint">确定删除“${esc(it.name)}”？</span><button class="btn" data-act="delno">不删</button><button class="btn danger" data-act="delyes">确定删除</button>`
+        : `<button class="btn danger" data-act="del">删除</button>`}<button class="btn primary" data-act="save">保存修改</button></div>
     </div>` : ''}
   </div>`;
 }
@@ -322,7 +647,7 @@ function renderLog(){
     return `<li class="${m.undone ? 'undone' : ''}"><time>${ts}</time>
       <span class="n">${esc(m.item_name)}<br><small>${esc(m.kind)}${m.who ? ' · ' + esc(m.who) : ''} · 剩 ${fmt(m.qty_after)}</small></span>
       <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}</span>
-      ${canUndo ? `<button data-undo="${esc(m.id)}">撤销</button>` : '<span></span>'}</li>`;
+      ${canUndo ? `<button class="btn" data-undo="${esc(m.id)}">撤销</button>` : '<span></span>'}</li>`;
   }).join('');
 }
 
@@ -376,10 +701,12 @@ $('#log').addEventListener('click', e => {
   queue(() => rpc('api_undo', { p_code: code, p_move: b.dataset.undo })); toast('已撤销');
 });
 $('#chips').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; openId = null; render(); } });
+document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { cat = b.dataset.filter; openId = null; render(); $('#chips').scrollIntoView({ block: 'start', behavior: 'smooth' }); }));
 $('#search').addEventListener('input', e => { q = e.target.value.trim().toLowerCase(); render(); });
 
 $('#fCat').innerHTML = catOptions('布料');
-$('#addBtn').addEventListener('click', () => { $('#addForm').hidden = false; $('#fName').focus(); });
+function openAdd(){ $('#addForm').hidden = false; $('#addForm').scrollIntoView({ block: 'center' }); $('#fName').focus(); }
+$('#addBtn').addEventListener('click', openAdd);
 $('#cancelAdd').addEventListener('click', () => { $('#addForm').hidden = true; });
 $('#addForm').addEventListener('submit', e => {
   e.preventDefault();
@@ -388,6 +715,26 @@ $('#addForm').addEventListener('submit', e => {
     p_unit: $('#fUnit').value, p_qty: Number($('#fQty').value) || 0, p_low: Number($('#fLow').value) || 0, p_who: who }));
   $('#addForm').reset(); $('#addForm').hidden = true; toast(`已添加 ${name}`);
 });
+
+/* ---------- 页面切换 ---------- */
+const view = () => location.hash === '#stock' ? 'stock' : 'home';
+function route(){
+  if (!code) return;
+  const v = view();
+  $('#home').hidden = v !== 'home'; $('#stock').hidden = v !== 'stock';
+  document.title = v === 'stock' ? '计量库' : '生产控制台';
+  renderAll(); window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+function go(target){
+  if (target === 'home') { location.hash = ''; history.replaceState(null, '', location.pathname); route(); return; }
+  if (target === 'stock-low') cat = '偏少';
+  if (target === 'stock') cat = '全部';
+  if (location.hash !== '#stock') location.hash = 'stock'; else route();
+  if (target === 'stock-add') setTimeout(openAdd, 50);
+}
+document.addEventListener('click', e => { const t = e.target.closest('[data-go]'); if (t) { e.stopPropagation(); go(t.dataset.go); } });
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-go][role=link]')) { e.preventDefault(); go(e.target.dataset.go); } });
 
 /* ---------- 登录 / 设置 ---------- */
 $('#login').addEventListener('submit', async e => {
@@ -412,7 +759,7 @@ $('#settings').addEventListener('submit', async e => {
 $('#logoutBtn').addEventListener('click', () => logout(''));
 $('#exportBtn').addEventListener('click', () => {
   const rows = [['分类','材料','规格','编号','单位','当前数量','提醒值','单价(元)','价格备注','库存金额(元)']].concat(items.map(i => [i.category, i.name, i.spec, i.code, i.unit, fmt(i.qty), fmt(i.low),
-    hasPrice(i) ? fmt(i.price) : '', i.price_note || '', hasPrice(i) ? (Number(i.price) * Number(i.qty)).toFixed(2) : '']));
+    hasPrice(i) ? fmt(i.price) : '', i.price_note || '', hasPrice(i) ? value(i).toFixed(2) : '']));
   const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
   const d = new Date(), a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -421,18 +768,19 @@ $('#exportBtn').addEventListener('click', () => {
 });
 function logout(msg){
   code = ''; store.set('stock_code', ''); clearInterval(pollTimer);
-  $('#app').hidden = true; $('#settings').hidden = true; $('#menuBtn').hidden = true; $('#login').hidden = false;
+  $('#home').hidden = true; $('#stock').hidden = true; $('#settings').hidden = true; $('#loginWrap').hidden = false;
   $('#lWho').value = who; notice(msg);
 }
 function start(){
-  $('#login').hidden = true; $('#app').hidden = false; $('#menuBtn').hidden = false;
-  $('#list').innerHTML = '<div class="empty">正在读取库存…</div>';
-  load(); clearInterval(pollTimer);
+  $('#loginWrap').hidden = true;
+  route(); load(); clearInterval(pollTimer);
   pollTimer = setInterval(() => { if (!document.hidden) load(); }, 10000);   // 每 10 秒同步一次别人的操作
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && code) load(); });
 
+drawStatic();
 if (SUPABASE_URL.includes('你的项目')) {
+  $('#loginWrap').hidden = false;
   notice('还没有填 Supabase 地址和密钥：请打开 index.html，修改最上面的 SUPABASE_URL 和 SUPABASE_KEY。');
 } else if (code) start(); else logout('');
 </script>
