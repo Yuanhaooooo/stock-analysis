@@ -611,8 +611,29 @@ function monthUse(){
   return src.filter(x => (x.kind === '取货' || x.kind === '出库') && !x.undone && Number(x.delta) < 0);
 }
 function shortNum(v, unit){ return unit === '¥' ? (v >= 10000 ? '¥' + (v / 10000).toFixed(1) + '万' : money(v)) : fmt(v) + unit; }
+/* 圆角环形扇区：相邻块之间是等宽空隙（半宽 h），四个角都是半径 c 的圆角。角度 0 在正上方，顺时针增加 */
+function roundedSector(cx, cy, Ro, Ri, a0, a1, h, c){
+  const span = a1 - a0;
+  // 块太窄时自动缩小圆角，仍然放不下就不画
+  for (c = Math.min(c, (Ro - Ri) / 2 - 0.5); c >= 0; c -= 0.5)
+    if (2 * Math.asin(Math.min(1, (h + c) / (Ri + c))) < span && 2 * Math.asin(Math.min(1, (h + c) / (Ro - c))) < span) break;
+  if (c < 0) return '';
+  const P = (x, y) => `${(cx + x).toFixed(2)},${(cy + y).toFixed(2)}`;
+  // 某条边界线（角度 ang、往块内偏移 h）上的一个圆角：给出与直线、与圆弧的两个切点
+  function corner(ang, dir, rad, outer){
+    const u = [Math.sin(ang), -Math.cos(ang)], n = [dir * Math.cos(ang), dir * Math.sin(ang)];
+    const rc = outer ? rad - c : rad + c, d = Math.sqrt(Math.max(rc * rc - (h + c) * (h + c), 0));
+    const C = [d * u[0] + (h + c) * n[0], d * u[1] + (h + c) * n[1]], len = Math.hypot(C[0], C[1]);
+    return { line: P(d * u[0] + h * n[0], d * u[1] + h * n[1]), arc: P(C[0] / len * rad, C[1] / len * rad), ang: Math.atan2(C[0], -C[1]) };
+  }
+  const os = corner(a0, 1, Ro, true), oe = corner(a1, -1, Ro, true), ie = corner(a1, -1, Ri, false), is = corner(a0, 1, Ri, false);
+  const norm = x => ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const lo = norm(oe.ang - os.ang) > Math.PI ? 1 : 0, li = norm(ie.ang - is.ang) > Math.PI ? 1 : 0;
+  return `M${os.line} A${c},${c} 0 0 1 ${os.arc} A${Ro},${Ro} 0 ${lo} 1 ${oe.arc} A${c},${c} 0 0 1 ${oe.line}`
+       + ` L${ie.line} A${c},${c} 0 0 1 ${ie.arc} A${Ri},${Ri} 0 ${li} 0 ${is.arc} A${c},${c} 0 0 1 ${is.line} Z`;
+}
 function drawDonut(svg, parts, centerBig, centerSmall){
-  const cx = 180, cy = 145, R = 96, r = 58, total = parts.reduce((s, p) => s + p.v, 0);
+  const cx = 180, cy = 145, R = 100, r = 56, total = parts.reduce((s, p) => s + p.v, 0);
   if (!total) {
     svg.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="#262626" stroke-width="${R - r}"/>
       <text x="${cx}" y="${cy + 5}" text-anchor="middle" fill="#8E8E8E" font-size="13">${esc(centerSmall)}</text>`;
@@ -625,15 +646,14 @@ function drawDonut(svg, parts, centerBig, centerSmall){
   ps = big;
   const pt = (rad, a) => [cx + rad * Math.sin(a), cy - rad * Math.cos(a)];
   let a = 0, out = '';
-  const labels = [], gap = ps.length > 1 ? 0.05 : 0;
+  const labels = [];
   ps.forEach((p, i) => {
-    const span = p.v / total * Math.PI * 2, a0 = a + gap / 2, a1 = a + span - gap / 2, col = DONUT[i % DONUT.length];
-    const large = a1 - a0 > Math.PI ? 1 : 0, Ro = R - 3, Ri = r + 3;
+    const span = p.v / total * Math.PI * 2, col = DONUT[i % DONUT.length];
     if (ps.length === 1) {
       out += `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${col}" stroke-width="${R - r}"/>`;
     } else {
-      const [x0, y0] = pt(Ro, a0), [x1, y1] = pt(Ro, a1), [x2, y2] = pt(Ri, a1), [x3, y3] = pt(Ri, a0);
-      out += `<path d="M${x0},${y0} A${Ro},${Ro} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${Ri},${Ri} 0 ${large} 0 ${x3},${y3} Z" fill="${col}" stroke="${col}" stroke-width="6" stroke-linejoin="round"><title>${esc(p.k)} ${Math.round(p.v / total * 100)}%</title></path>`;
+      const d = roundedSector(cx, cy, R, r, a, a + span, 3, 8);
+      if (d) out += `<path d="${d}" fill="${col}"><title>${esc(p.k)} ${Math.round(p.v / total * 100)}%</title></path>`;
     }
     const mid = a + span / 2, pct = p.v / total * 100;
     if (pct >= 4) { const [tx, ty] = pt((R + r) / 2, mid); out += `<text x="${tx}" y="${ty + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${i >= 5 ? '#FFFFFF' : '#141414'}" font-family="Archivo,sans-serif">${Math.round(pct)}%</text>`; }
