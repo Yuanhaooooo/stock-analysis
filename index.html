@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="材料库存">
+<meta name="theme-color" content="#00789C">
+<title>材料库存</title>
+<script>
+/* ================== 只需要改这里 ==================
+   在 Supabase 后台 → Project Settings → API（或 API Keys）里复制：
+   SUPABASE_URL：Project URL，形如 https://xxxx.supabase.co
+   SUPABASE_KEY：anon public 密钥，或 publishable 密钥（sb_publishable_ 开头）
+   这两个值放在网页里是安全的：数据只能凭厂里口令读写。 */
+const SUPABASE_URL = 'https://fsujvrcvyypqjmysyduz.supabase.co/rest/v1/';
+const SUPABASE_KEY = 'sb_publishable_v1syLtk_rleN_VScU_2Dbg_kDX2-Glj';
+/* ================================================= */
+</script>
+<style>
+:root{
+  --paper:#F4F6F8; --card:#FFFFFF; --ink:#14181D; --muted:#5B6472; --line:#DCE1E7;
+  --accent:#00789C; --accent-ink:#FFFFFF; --accent-soft:#E3F2F7;
+  --low:#B4470F; --low-bg:#FDEFE5; --zero:#B42318; --zero-bg:#FDECEA;
+  --c:#00A3D9; --m:#D6007E; --y:#F2C400; --k:#14181D;
+  --font-body:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  --font-num:"Barlow Condensed","DIN Alternate","Arial Narrow",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#0E1115; --card:#171B21; --ink:#E8ECF1; --muted:#97A0AD; --line:#2A3038;
+  --accent:#3BB8E2; --accent-ink:#04202A; --accent-soft:#12303B;
+  --low:#FB9A55; --low-bg:#2D1B0F; --zero:#F87171; --zero-bg:#341617; --k:#E8ECF1; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:680px;margin:0 auto;padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(110px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.reg{display:flex;gap:5px;margin-bottom:4px}
+.reg i{width:10px;height:10px;border-radius:50%;display:block}
+h1{margin:0;font-size:24px;font-weight:700}
+.sub{margin:0;color:var(--muted);font-size:13px}
+input,select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0;width:100%}
+input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px;touch-action:manipulation}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+button.danger{color:var(--zero);border-color:var(--zero)}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 8px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.tools{display:flex;gap:8px}
+.tools input{flex:1}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:6px 12px;font-size:14px;border-radius:999px;background:var(--card)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip b{font-weight:500;opacity:.6;margin-left:4px;font-variant-numeric:tabular-nums}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{margin:0;font-size:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.cat{margin:10px 0 0;font-size:13px;color:var(--muted);font-weight:500;letter-spacing:.06em}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.item.low{border-color:var(--low)} .item.zero{border-color:var(--zero)}
+.main{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 10px 10px 14px}
+.info{min-width:0;display:flex;flex-direction:column;gap:1px}
+.name{font-weight:700;font-size:16px;overflow-wrap:anywhere;background:none;border:0;padding:0;text-align:left;border-radius:4px;color:var(--ink)}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pill{font-size:12px;padding:0 8px;border-radius:999px;font-weight:500}
+.pill.low{background:var(--low-bg);color:var(--low)} .pill.zero{background:var(--zero-bg);color:var(--zero)}
+.qty{font-family:var(--font-num);font-weight:700;font-size:36px;line-height:1;font-variant-numeric:tabular-nums;text-align:right;min-width:2.2ch}
+.qty small{display:block;font-family:var(--font-body);font-size:12px;font-weight:400;color:var(--muted);margin-top:2px}
+.item.low .qty{color:var(--low)} .item.zero .qty{color:var(--zero)}
+.take{width:64px;height:64px;border-radius:14px;background:var(--accent);color:var(--accent-ink);border:0;font-family:var(--font-num);font-weight:700;font-size:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;padding:0}
+.take span{font-family:var(--font-body);font-size:11px;font-weight:500;margin-top:3px}
+.take:active{transform:scale(.94)}
+.more{border-top:1px dashed var(--line);padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--paper)}
+.more .line{display:flex;gap:8px;align-items:center}
+.more .line input{width:96px;flex:none}
+.hint{font-size:12px;color:var(--muted)}
+.empty{text-align:center;padding:28px 16px;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:14px}
+.notice{padding:10px 14px;border-radius:10px;background:var(--low-bg);color:var(--low);font-size:14px}
+.log h2{margin:8px 0;font-size:15px;color:var(--muted);font-weight:500}
+.log ul{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.log li{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);font-size:14px}
+.log li:first-child{border-top:0}
+.log li.undone{opacity:.45;text-decoration:line-through}
+.log time{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px;line-height:1.3}
+.log .d{font-family:var(--font-num);font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.log .d.neg{color:var(--m)} .log .d.pos{color:var(--accent)}
+.log .n{min-width:0;overflow-wrap:anywhere}
+.log .n small{color:var(--muted)}
+.log button{padding:4px 10px;font-size:13px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 10px 10px 16px;border-radius:12px;display:flex;gap:12px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px);z-index:20}
+.toast button{background:transparent;color:var(--paper);border-color:var(--muted);padding:6px 12px}
+#login{max-width:380px;margin:12vh auto 0}
+@media (max-width:420px){.qty{font-size:30px}.take{width:58px;height:58px}.main{gap:8px}.grid2{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.take:active{transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="reg" aria-hidden="true"><i style="background:var(--c)"></i><i style="background:var(--m)"></i><i style="background:var(--y)"></i><i style="background:var(--k)"></i></div>
+      <h1>材料库存</h1>
+      <p class="sub" id="sub">取一件点一次 −1，所有人看到的数字同步更新</p>
+    </div>
+    <button class="ghost" id="menuBtn" type="button" hidden>设置</button>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <form id="login" class="panel" hidden>
+    <h2>进入库存</h2>
+    <div class="field"><label for="lCode">厂里口令</label><input id="lCode" type="password" autocomplete="current-password" required></div>
+    <div class="field"><label for="lWho">你的名字（记录谁取的货，可不填）</label><input id="lWho" maxlength="20" autocomplete="nickname"></div>
+    <button class="primary" type="submit">进入</button>
+  </form>
+
+  <form id="settings" class="panel" hidden>
+    <h2>设置</h2>
+    <div class="field"><label for="sWho">你的名字</label><input id="sWho" maxlength="20"></div>
+    <div class="field"><label for="sCode">新口令（不改就留空，至少 4 位）</label><input id="sCode" type="password" autocomplete="new-password"></div>
+    <div class="row">
+      <button type="button" id="exportBtn">导出表格</button>
+      <button type="button" id="logoutBtn">退出</button>
+      <button type="submit" class="primary">保存</button>
+    </div>
+  </form>
+
+  <div id="app" hidden>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="tools">
+        <input id="search" type="search" placeholder="搜索材料、规格、编号" autocomplete="off">
+        <button id="addBtn" class="primary" type="button">＋ 新材料</button>
+      </div>
+      <div class="chips" id="chips" role="toolbar" aria-label="分类"></div>
+    </div>
+
+    <form id="addForm" class="panel" hidden style="margin-top:12px">
+      <h2>添加新材料</h2>
+      <div class="grid2">
+        <div class="field"><label for="fName">名称</label><input id="fName" required></div>
+        <div class="field"><label for="fSpec">规格（可选）</label><input id="fSpec" placeholder="如：3.2×50m"></div>
+        <div class="field"><label for="fCat">分类</label><select id="fCat"></select></div>
+        <div class="field"><label for="fUnit">单位</label><input id="fUnit" value="卷" list="units"></div>
+        <div class="field"><label for="fQty">现有数量</label><input id="fQty" type="number" inputmode="decimal" min="0" step="any" value="0"></div>
+        <div class="field"><label for="fLow">少于等于多少提醒</label><input id="fLow" type="number" inputmode="decimal" min="0" step="any" value="1"></div>
+      </div>
+      <div class="row"><button type="button" id="cancelAdd">取消</button><button type="submit" class="primary">保存</button></div>
+    </form>
+
+    <div id="list" class="list" style="margin-top:12px"></div>
+
+    <section class="log" id="logSec" hidden>
+      <h2>最近记录</h2>
+      <ul id="log"></ul>
+    </section>
+  </div>
+</div>
+<datalist id="units"><option value="卷"><option value="张"><option value="根"><option value="个"><option value="瓶"><option value="箱"><option value="件"></datalist>
+<div id="toast" class="toast" hidden role="status"><span id="toastText"></span><button type="button" id="toastUndo">撤销</button></div>
+
+<script>
+const CATS = ['布料','膜/背胶','板材','墨水','型材/配件','电料','胶/辅料','工具/其他'];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => { n = Number(n) || 0; return Number.isInteger(n) ? String(n) : String(+n.toFixed(2)); };
+const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+                set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch {} } };
+
+let code = store.get('stock_code'), who = store.get('stock_who');
+let items = [], moves = [], cat = '全部', q = '', openId = null, confirmDel = null;
+let busy = 0, chain = Promise.resolve(), pollTimer = null;
+
+const ERR = { wrong_code:'口令不对', not_enough:'库存不够，不能再减', not_found:'这个材料已被删除', cannot_undo:'这条记录不能撤销',
+  bad_amount:'数量不对', bad_name:'名称不能为空', code_too_short:'口令至少 4 位' };
+function errText(e){ const m = String(e && e.message || ''); for (const k in ERR) if (m.includes(k)) return ERR[k];
+  if (m.includes('Failed to fetch') || m.includes('NetworkError')) return '网络连不上，请检查网络';
+  return '操作失败：' + m.slice(0, 80); }
+
+async function rpc(fn, args){
+  const headers = { 'Content-Type':'application/json', apikey: SUPABASE_KEY };
+  if (!SUPABASE_KEY.startsWith('sb_')) headers.Authorization = 'Bearer ' + SUPABASE_KEY;
+  const r = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, { method:'POST', headers, body: JSON.stringify(args) });
+  const t = await r.text(); let j = null; try { j = t ? JSON.parse(t) : null; } catch {}
+  if (!r.ok) throw new Error((j && (j.message || j.hint)) || ('HTTP ' + r.status));
+  return j;
+}
+function notice(t){ const n = $('#notice'); n.textContent = t || ''; n.hidden = !t; }
+
+let toastTimer = null, toastUndo = null;
+function toast(text, undoFn){
+  $('#toastText').textContent = text; toastUndo = undoFn || null; $('#toastUndo').hidden = !undoFn; $('#toast').hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 4000);
+}
+$('#toastUndo').addEventListener('click', () => { $('#toast').hidden = true; if (toastUndo) toastUndo(); });
+
+/* ---------- 数据 ---------- */
+async function load(){
+  if (busy) return;
+  try {
+    const [it, mv] = await Promise.all([ rpc('api_items', { p_code: code }), rpc('api_moves', { p_code: code, p_limit: 40 }) ]);
+    if (busy) return;               // 有操作进行中，等它完成后再刷新
+    items = it || []; moves = mv || []; notice(''); render();
+  } catch (e) {
+    if (String(e.message).includes('wrong_code')) { logout('口令已更改，请重新输入'); return; }
+    notice(errText(e));
+  }
+}
+function queue(fn){ busy++; chain = chain.then(fn).catch(e => { notice(errText(e)); }).finally(() => { if (--busy === 0) load(); }); }
+
+function adjust(it, delta, kind){
+  it.qty = Number(it.qty) + delta; render();            // 先在本机显示
+  queue(async () => {
+    await rpc('api_adjust', { p_code: code, p_item: it.id, p_delta: delta, p_kind: kind, p_who: who });
+  });
+  const word = kind === '取货' ? `已取 ${fmt(-delta)}` : kind === '入库' ? `入库 ${fmt(delta)}` : `出库 ${fmt(-delta)}`;
+  toast(`${it.name} ${word}，剩 ${fmt(it.qty)} ${it.unit}`, () => undoLatest(it.id, kind, delta));
+}
+function undoLatest(itemId, kind, delta){
+  queue(async () => {
+    const mv = await rpc('api_moves', { p_code: code, p_limit: 40 });
+    const m = (mv || []).find(x => x.item_id === itemId && x.kind === kind && Number(x.delta) === delta && !x.undone && (!who || x.who === who));
+    if (!m) throw new Error('cannot_undo');
+    await rpc('api_undo', { p_code: code, p_move: m.id });
+  });
+  toast('已撤销');
+}
+
+/* ---------- 显示 ---------- */
+function state(it){ const n = Number(it.qty), low = Number(it.low); return n <= 0 ? 'zero' : (n <= low ? 'low' : ''); }
+function renderChips(){
+  const count = c => c === '全部' ? items.length : c === '偏少' ? items.filter(i => state(i)).length : items.filter(i => i.category === c).length;
+  const cats = ['全部', '偏少', ...CATS.filter(c => items.some(i => i.category === c)), ...[...new Set(items.map(i => i.category))].filter(c => !CATS.includes(c))];
+  $('#chips').innerHTML = cats.map(c => `<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${c === cat}">${esc(c === '偏少' ? '库存偏少' : c)}<b>${count(c)}</b></button>`).join('');
+}
+function render(){
+  renderChips();
+  const list = $('#list');
+  const keep = {}; list.querySelectorAll('.more input,.more select').forEach(i => { keep[i.id] = i.value; });
+  const focusId = list.contains(document.activeElement) ? document.activeElement.id : null;
+  const words = q.split(/\s+/).filter(Boolean);
+  const shown = items.filter(it => (cat === '全部' || (cat === '偏少' ? state(it) : it.category === cat))
+    && words.every(w => (it.name + ' ' + it.spec + ' ' + it.code).toLowerCase().includes(w)));
+  if (!items.length) { list.innerHTML = '<div class="empty">还没有材料。点“＋ 新材料”添加。</div>'; renderLog(); return; }
+  if (!shown.length) { list.innerHTML = '<div class="empty">没有符合条件的材料</div>'; renderLog(); return; }
+  let html = '', lastCat = null;
+  for (const it of shown) {
+    if (cat === '全部' && it.category !== lastCat) { html += `<h2 class="cat">${esc(it.category)}</h2>`; lastCat = it.category; }
+    html += card(it);
+  }
+  list.innerHTML = html;
+  for (const k in keep) { const el = document.getElementById(k); if (el) el.value = keep[k]; }
+  if (focusId) { const el = document.getElementById(focusId); if (el) el.focus(); }
+  renderLog();
+}
+function card(it){
+  const n = Number(it.qty), st = state(it), id = esc(it.id);
+  const pill = st === 'zero' ? '<span class="pill zero">缺货</span>' : st === 'low' ? '<span class="pill low">偏少</span>' : '';
+  const meta = [it.spec, it.code].filter(Boolean).map(esc).join(' · ');
+  const open = openId === it.id;
+  return `<div class="item ${st}" data-id="${id}">
+    <div class="main">
+      <div class="info"><button class="name" data-act="toggle" aria-expanded="${open}">${esc(it.name)}</button>
+        <div class="meta">${meta}${pill}</div></div>
+      <div class="qty">${fmt(n)}<small>${esc(it.unit)}</small></div>
+      <button class="take" data-act="take" ${n >= 1 ? '' : 'disabled'} aria-label="${esc(it.name)} 取一${esc(it.unit)}">−1<span>取货</span></button>
+    </div>
+    ${open ? `<div class="more">
+      <div class="line"><input id="amt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="数量">
+        <button data-act="in">入库 ＋</button><button data-act="out">出库 −</button></div>
+      <div class="line"><input id="cnt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${fmt(n)}">
+        <button data-act="count">盘点：改成实际数量</button></div>
+      <div class="grid2">
+        <div class="field"><label for="en-${id}">名称</label><input id="en-${id}" value="${esc(it.name)}"></div>
+        <div class="field"><label for="es-${id}">规格</label><input id="es-${id}" value="${esc(it.spec)}"></div>
+        <div class="field"><label for="ec-${id}">分类</label><select id="ec-${id}">${catOptions(it.category)}</select></div>
+        <div class="field"><label for="eu-${id}">单位</label><input id="eu-${id}" value="${esc(it.unit)}" list="units"></div>
+        <div class="field"><label for="el-${id}">少于等于多少提醒</label><input id="el-${id}" type="number" min="0" step="any" value="${fmt(it.low)}"></div>
+      </div>
+      <div class="row">${confirmDel === it.id
+        ? `<span class="hint">确定删除“${esc(it.name)}”？</span><button data-act="delno">不删</button><button class="danger" data-act="delyes">确定删除</button>`
+        : `<button class="danger" data-act="del">删除</button>`}<button class="primary" data-act="save">保存修改</button></div>
+    </div>` : ''}
+  </div>`;
+}
+function catOptions(sel){ const all = [...new Set([...CATS, sel].filter(Boolean))]; return all.map(c => `<option${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join(''); }
+function renderLog(){
+  $('#logSec').hidden = !moves.length;
+  $('#log').innerHTML = moves.slice(0, 30).map(m => {
+    const t = new Date(m.created_at), d = Number(m.delta);
+    const ts = `${t.getMonth()+1}/${t.getDate()}<br>${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    const canUndo = !m.undone && m.item_id && m.kind !== '新增';
+    return `<li class="${m.undone ? 'undone' : ''}"><time>${ts}</time>
+      <span class="n">${esc(m.item_name)}<br><small>${esc(m.kind)}${m.who ? ' · ' + esc(m.who) : ''} · 剩 ${fmt(m.qty_after)}</small></span>
+      <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}</span>
+      ${canUndo ? `<button data-undo="${esc(m.id)}">撤销</button>` : '<span></span>'}</li>`;
+  }).join('');
+}
+
+/* ---------- 操作 ---------- */
+$('#list').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const it = items.find(i => i.id === b.closest('.item').dataset.id); if (!it) return;
+  const act = b.dataset.act, id = it.id, val = p => document.getElementById(p + id).value;
+  if (act === 'toggle') { openId = openId === id ? null : id; confirmDel = null; render(); return; }
+  if (act === 'take') { if (Number(it.qty) >= 1) adjust(it, -1, '取货'); return; }
+  if (act === 'in' || act === 'out') {
+    const v = Number(val('amt-'));
+    if (!(v > 0)) { document.getElementById('amt-' + id).focus(); return; }
+    if (act === 'out' && v > Number(it.qty)) { toast('库存不够，不能出这么多'); return; }
+    document.getElementById('amt-' + id).value = '';
+    adjust(it, act === 'in' ? v : -v, act === 'in' ? '入库' : '出库'); return;
+  }
+  if (act === 'count') {
+    const raw = val('cnt-'), v = Number(raw);
+    if (raw === '' || !(v >= 0)) { document.getElementById('cnt-' + id).focus(); return; }
+    it.qty = v; document.getElementById('cnt-' + id).value = ''; render();
+    queue(() => rpc('api_set_qty', { p_code: code, p_item: id, p_qty: v, p_who: who }));
+    toast(`${it.name} 已盘点为 ${fmt(v)} ${it.unit}`); return;
+  }
+  if (act === 'save') {
+    const name = val('en-').trim(); if (!name) return;
+    const p = { p_code: code, p_item: id, p_name: name, p_spec: val('es-').trim(), p_category: val('ec-'), p_unit: val('eu-').trim() || '件', p_low: Number(val('el-')) || 0 };
+    Object.assign(it, { name, spec: p.p_spec, category: p.p_category, unit: p.p_unit, low: p.p_low });
+    openId = null; render();
+    queue(() => rpc('api_update_item', p)); toast('已保存'); return;
+  }
+  if (act === 'del') { confirmDel = id; render(); return; }
+  if (act === 'delno') { confirmDel = null; render(); return; }
+  if (act === 'delyes') {
+    items = items.filter(i => i.id !== id); confirmDel = null; openId = null; render();
+    queue(() => rpc('api_delete_item', { p_code: code, p_item: id })); toast('已删除'); return;
+  }
+});
+$('#log').addEventListener('click', e => {
+  const b = e.target.closest('[data-undo]'); if (!b) return;
+  b.disabled = true;
+  queue(() => rpc('api_undo', { p_code: code, p_move: b.dataset.undo })); toast('已撤销');
+});
+$('#chips').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; openId = null; render(); } });
+$('#search').addEventListener('input', e => { q = e.target.value.trim().toLowerCase(); render(); });
+
+$('#fCat').innerHTML = catOptions('布料');
+$('#addBtn').addEventListener('click', () => { $('#addForm').hidden = false; $('#fName').focus(); });
+$('#cancelAdd').addEventListener('click', () => { $('#addForm').hidden = true; });
+$('#addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('#fName').value.trim(); if (!name) return;
+  queue(() => rpc('api_add_item', { p_code: code, p_name: name, p_spec: $('#fSpec').value, p_category: $('#fCat').value,
+    p_unit: $('#fUnit').value, p_qty: Number($('#fQty').value) || 0, p_low: Number($('#fLow').value) || 0, p_who: who }));
+  $('#addForm').reset(); $('#addForm').hidden = true; toast(`已添加 ${name}`);
+});
+
+/* ---------- 登录 / 设置 ---------- */
+$('#login').addEventListener('submit', async e => {
+  e.preventDefault();
+  const c = $('#lCode').value;
+  try { await rpc('api_login', { p_code: c }); }
+  catch (err) { notice(errText(err)); return; }
+  code = c; who = $('#lWho').value.trim(); store.set('stock_code', code); store.set('stock_who', who);
+  notice(''); start();
+});
+$('#menuBtn').addEventListener('click', () => { const s = $('#settings'); s.hidden = !s.hidden; $('#sWho').value = who; $('#sCode').value = ''; });
+$('#settings').addEventListener('submit', async e => {
+  e.preventDefault();
+  who = $('#sWho').value.trim(); store.set('stock_who', who);
+  const nc = $('#sCode').value;
+  if (nc) {
+    try { await rpc('api_change_code', { p_code: code, p_new: nc }); code = nc; store.set('stock_code', code); toast('口令已更改，请告诉同事新口令'); }
+    catch (err) { notice(errText(err)); return; }
+  } else toast('已保存');
+  $('#settings').hidden = true;
+});
+$('#logoutBtn').addEventListener('click', () => logout(''));
+$('#exportBtn').addEventListener('click', () => {
+  const rows = [['分类','材料','规格','编号','单位','当前数量','提醒值']].concat(items.map(i => [i.category, i.name, i.spec, i.code, i.unit, fmt(i.qty), fmt(i.low)]));
+  const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+  const d = new Date(), a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `库存_${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+function logout(msg){
+  code = ''; store.set('stock_code', ''); clearInterval(pollTimer);
+  $('#app').hidden = true; $('#settings').hidden = true; $('#menuBtn').hidden = true; $('#login').hidden = false;
+  $('#lWho').value = who; notice(msg);
+}
+function start(){
+  $('#login').hidden = true; $('#app').hidden = false; $('#menuBtn').hidden = false;
+  $('#list').innerHTML = '<div class="empty">正在读取库存…</div>';
+  load(); clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (!document.hidden) load(); }, 10000);   // 每 10 秒同步一次别人的操作
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && code) load(); });
+
+if (SUPABASE_URL.includes('你的项目')) {
+  notice('还没有填 Supabase 地址和密钥：请打开 index.html，修改最上面的 SUPABASE_URL 和 SUPABASE_KEY。');
+} else if (code) start(); else logout('');
+</script>
+</body>
+</html>
