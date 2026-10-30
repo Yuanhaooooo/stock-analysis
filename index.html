@@ -62,6 +62,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .field{display:flex;flex-direction:column;gap:4px;min-width:0}
 .field label{font-size:12px;color:var(--muted);letter-spacing:.04em}
 .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.sum{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.sum b{color:var(--ink);font-weight:700}
+.price{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
 .cat{margin:10px 0 0;font-size:13px;color:var(--muted);font-weight:500;letter-spacing:.06em}
 .list{display:flex;flex-direction:column;gap:8px}
 .item{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
@@ -140,6 +143,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <button id="addBtn" class="primary" type="button">＋ 新材料</button>
       </div>
       <div class="chips" id="chips" role="toolbar" aria-label="分类"></div>
+      <p class="sum" id="sum" hidden></p>
     </div>
 
     <form id="addForm" class="panel" hidden style="margin-top:12px">
@@ -171,6 +175,8 @@ const CATS = ['布料','膜/背胶','板材','墨水','型材/配件','电料','
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = n => { n = Number(n) || 0; return Number.isInteger(n) ? String(n) : String(+n.toFixed(2)); };
+const hasPrice = it => it.price !== null && it.price !== undefined && it.price !== '';
+const money = n => '¥' + (Number(n) || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch { return ''; } },
                 set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch {} } };
 
@@ -184,10 +190,17 @@ function errText(e){ const m = String(e && e.message || ''); for (const k in ERR
   if (m.includes('Failed to fetch') || m.includes('NetworkError')) return '网络连不上，请检查网络';
   return '操作失败：' + m.slice(0, 80); }
 
+function apiBase(){
+  // 容错：接受 https://xxx.supabase.co、带 /rest/v1 的地址，或后台网址 supabase.com/dashboard/project/xxx
+  const raw = SUPABASE_URL.trim();
+  const dash = raw.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
+  if (dash) return 'https://' + dash[1] + '.supabase.co';
+  try { return new URL(/^https?:\/\//.test(raw) ? raw : 'https://' + raw).origin; } catch { return raw.replace(/\/+$/, ''); }
+}
 async function rpc(fn, args){
   const headers = { 'Content-Type':'application/json', apikey: SUPABASE_KEY };
   if (!SUPABASE_KEY.startsWith('sb_')) headers.Authorization = 'Bearer ' + SUPABASE_KEY;
-  const r = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, { method:'POST', headers, body: JSON.stringify(args) });
+  const r = await fetch(apiBase() + '/rest/v1/rpc/' + fn, { method:'POST', headers, body: JSON.stringify(args) });
   const t = await r.text(); let j = null; try { j = t ? JSON.parse(t) : null; } catch {}
   if (!r.ok) throw new Error((j && (j.message || j.hint)) || ('HTTP ' + r.status));
   return j;
@@ -248,6 +261,11 @@ function render(){
   const words = q.split(/\s+/).filter(Boolean);
   const shown = items.filter(it => (cat === '全部' || (cat === '偏少' ? state(it) : it.category === cat))
     && words.every(w => (it.name + ' ' + it.spec + ' ' + it.code).toLowerCase().includes(w)));
+  const priced = shown.filter(hasPrice), sum = $('#sum');
+  sum.hidden = !items.length;
+  sum.innerHTML = `${cat === '全部' ? '全部' : esc(cat === '偏少' ? '库存偏少' : cat)} ${shown.length} 项`
+    + (priced.length ? ` · 库存价值 <b>${money(priced.reduce((s, i) => s + Number(i.price) * Number(i.qty), 0))}</b>`
+      + (priced.length < shown.length ? `（${shown.length - priced.length} 项未填价格）` : '') : '');
   if (!items.length) { list.innerHTML = '<div class="empty">还没有材料。点“＋ 新材料”添加。</div>'; renderLog(); return; }
   if (!shown.length) { list.innerHTML = '<div class="empty">没有符合条件的材料</div>'; renderLog(); return; }
   let html = '', lastCat = null;
@@ -263,7 +281,8 @@ function render(){
 function card(it){
   const n = Number(it.qty), st = state(it), id = esc(it.id);
   const pill = st === 'zero' ? '<span class="pill zero">缺货</span>' : st === 'low' ? '<span class="pill low">偏少</span>' : '';
-  const meta = [it.spec, it.code].filter(Boolean).map(esc).join(' · ');
+  const meta = [it.spec, it.code].filter(Boolean).map(esc).join(' · ')
+    + (hasPrice(it) ? `<span class="price">${money(it.price)}/${esc(it.unit)}</span>` : '');
   const open = openId === it.id;
   return `<div class="item ${st}" data-id="${id}">
     <div class="main">
@@ -283,7 +302,10 @@ function card(it){
         <div class="field"><label for="ec-${id}">分类</label><select id="ec-${id}">${catOptions(it.category)}</select></div>
         <div class="field"><label for="eu-${id}">单位</label><input id="eu-${id}" value="${esc(it.unit)}" list="units"></div>
         <div class="field"><label for="el-${id}">少于等于多少提醒</label><input id="el-${id}" type="number" min="0" step="any" value="${fmt(it.low)}"></div>
+        <div class="field"><label for="ep-${id}">单价（元/${esc(it.unit)}）</label><input id="ep-${id}" type="number" inputmode="decimal" min="0" step="any" value="${hasPrice(it) ? fmt(it.price) : ''}" placeholder="未填"></div>
+        <div class="field"><label for="en2-${id}">价格备注</label><input id="en2-${id}" value="${esc(it.price_note || '')}" placeholder="如：14.4元/㎡"></div>
       </div>
+      ${hasPrice(it) ? `<div class="hint">这项库存价值 ${money(Number(it.price) * n)}</div>` : ''}
       <div class="row">${confirmDel === it.id
         ? `<span class="hint">确定删除“${esc(it.name)}”？</span><button data-act="delno">不删</button><button class="danger" data-act="delyes">确定删除</button>`
         : `<button class="danger" data-act="del">删除</button>`}<button class="primary" data-act="save">保存修改</button></div>
@@ -328,9 +350,18 @@ $('#list').addEventListener('click', e => {
   if (act === 'save') {
     const name = val('en-').trim(); if (!name) return;
     const p = { p_code: code, p_item: id, p_name: name, p_spec: val('es-').trim(), p_category: val('ec-'), p_unit: val('eu-').trim() || '件', p_low: Number(val('el-')) || 0 };
+    const rawP = val('ep-').trim(), newPrice = rawP === '' ? null : Number(rawP), newNote = val('en2-').trim();
+    if (rawP !== '' && !(newPrice >= 0)) { document.getElementById('ep-' + id).focus(); return; }
+    const priceChanged = (hasPrice(it) ? Number(it.price) : null) !== newPrice || (it.price_note || '') !== newNote;
+    const priceReady = 'price' in it;
     Object.assign(it, { name, spec: p.p_spec, category: p.p_category, unit: p.p_unit, low: p.p_low });
+    if (priceChanged && priceReady) Object.assign(it, { price: newPrice, price_note: newNote });
     openId = null; render();
-    queue(() => rpc('api_update_item', p)); toast('已保存'); return;
+    queue(async () => {
+      await rpc('api_update_item', p);
+      if (priceChanged && priceReady) await rpc('api_set_price', { p_code: code, p_item: id, p_price: newPrice, p_note: newNote });
+    });
+    toast(priceChanged && !priceReady ? '已保存（价格未保存：数据库还没升级）' : '已保存'); return;
   }
   if (act === 'del') { confirmDel = id; render(); return; }
   if (act === 'delno') { confirmDel = null; render(); return; }
@@ -380,7 +411,8 @@ $('#settings').addEventListener('submit', async e => {
 });
 $('#logoutBtn').addEventListener('click', () => logout(''));
 $('#exportBtn').addEventListener('click', () => {
-  const rows = [['分类','材料','规格','编号','单位','当前数量','提醒值']].concat(items.map(i => [i.category, i.name, i.spec, i.code, i.unit, fmt(i.qty), fmt(i.low)]));
+  const rows = [['分类','材料','规格','编号','单位','当前数量','提醒值','单价(元)','价格备注','库存金额(元)']].concat(items.map(i => [i.category, i.name, i.spec, i.code, i.unit, fmt(i.qty), fmt(i.low),
+    hasPrice(i) ? fmt(i.price) : '', i.price_note || '', hasPrice(i) ? (Number(i.price) * Number(i.qty)).toFixed(2) : '']));
   const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
   const d = new Date(), a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
