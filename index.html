@@ -19,7 +19,7 @@ const SUPABASE_KEY = 'sb_publishable_v1syLtk_rleN_VScU_2Dbg_kDX2-Glj';
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
 <style>
 /* 主页：图二的便当卡片；计量库：高对比暗黑工业风 */
 :root{
@@ -248,6 +248,88 @@ input::placeholder{color:#6A6A6A}
   .kpis{grid-template-columns:1fr 1fr} .k1{grid-column:1 / -1}
   .qty{font-size:34px} .take{width:58px;height:58px} .tn{width:50px;height:58px;font-size:19px;border-radius:14px} .main{gap:8px;padding-left:14px} .grid2{grid-template-columns:1fr}
 }
+/* ---------- 接单档案（抽屉文件夹，线稿纸面风格） ---------- */
+#orders{--o-paper:#F1F0EB;--o-ink:#111111;--o-mute:#6B6B66;--o-soft:#E4E3DC;background:var(--o-paper);color:var(--o-ink);min-height:100vh;
+  font-family:"Space Mono","PingFang SC","Microsoft YaHei","Noto Sans SC",ui-monospace,monospace}
+#orders svg text{font-family:"Space Mono","PingFang SC","Microsoft YaHei",monospace}
+.owrap{max-width:1040px;margin:0 auto;padding-block:0 calc(80px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.obar{position:sticky;top:0;z-index:20;background:var(--o-paper);display:flex;align-items:center;gap:12px;padding-block:calc(12px + env(safe-area-inset-top,0px)) 12px;border-bottom:1.5px solid var(--o-ink)}
+.obtn{font:inherit;font-size:13px;background:var(--o-paper);color:var(--o-ink);border:1.5px solid var(--o-ink);border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.obtn:hover{background:var(--o-ink);color:var(--o-paper)}
+.obtn:focus-visible{outline:2px solid #FF7A1A;outline-offset:2px}
+.obar h1{margin:0;font-size:14px;font-weight:700;letter-spacing:.18em;flex:1;text-align:center}
+.fnav{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;margin:22px 0 10px}
+.fnav .obtn{height:52px;min-width:52px;font-size:20px;padding:0 14px}
+.fnav .obtn small{font-size:11px;margin-left:6px}
+.ftitle{text-align:center;min-width:0}
+.ftitle .ym{font-size:clamp(34px,7vw,56px);font-weight:700;letter-spacing:.06em;line-height:1;display:inline-block;background:var(--o-ink);color:var(--o-paper);padding:6px 14px 4px}
+.ftitle .ms{display:block;margin-top:8px;font-size:12px;letter-spacing:.06em;color:var(--o-mute)}
+.cab{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:12px;align-items:start}
+.drawer{border:1.5px solid var(--o-ink);border-radius:16px;padding:6px 14px 18px;background:var(--o-paper);min-width:0}
+.drawer .handle{display:flex;flex-direction:column;align-items:center;gap:3px;margin:-1px 0 6px}
+.drawer .handle i{display:block;width:70px;height:7px;border:1.5px solid var(--o-ink);border-radius:0 0 8px 8px;border-top:0}
+.rail{position:sticky;top:78px;display:flex;flex-direction:column;gap:2px;max-height:calc(100vh - 96px)}
+.rail button{font:inherit;font-size:11px;height:clamp(16px,2.6vh,24px);border:1.5px solid transparent;background:transparent;color:var(--o-mute);border-radius:5px;cursor:pointer;padding:0;letter-spacing:.04em}
+.rail button.has{background:var(--o-ink);color:var(--o-paper);font-weight:700}
+.rail button.today{border-color:var(--o-ink);color:var(--o-ink)}
+.rail button.has.today{border-color:#FF7A1A}
+.rail button:hover{border-color:var(--o-ink)}
+/* 月度汇总：像海报下方的信息块 */
+.msum{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;border:1.5px solid var(--o-ink);border-radius:10px;padding:14px;margin:8px 0 6px}
+.msum h3,.sheet h3{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.2em}
+.msum svg,.sheet svg{width:100%;max-width:340px;height:auto;display:block;margin:0 auto}
+.otable{width:100%;border-collapse:collapse;font-size:12.5px}
+.otable td,.otable th{border:1.5px solid var(--o-ink);padding:5px 8px;text-align:left;vertical-align:top}
+.otable th{font-weight:700;letter-spacing:.12em;font-size:11px;width:34%;white-space:nowrap}
+.otable td.r{text-align:right;font-variant-numeric:tabular-nums}
+.dem{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.dem li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
+.dem li .bar{grid-column:1 / -1;height:7px;border:1.5px solid var(--o-ink);border-radius:4px;overflow:hidden}
+.dem li .bar i{display:block;height:100%;background:var(--o-ink)}
+.dem li small{color:var(--o-mute)}
+/* 日期分隔卡和订单卡：带梯形标签的索引卡 */
+.day{position:relative;margin-top:34px;border:1.5px solid var(--o-ink);border-radius:10px;background:var(--o-paper);padding:10px 12px 12px;scroll-margin-top:150px}
+.day.empty{padding:8px 12px;color:var(--o-mute);font-size:11px;letter-spacing:.1em}
+.tab{position:absolute;top:-28px;height:29.5px;padding:6px 20px 0;font-size:12.5px;letter-spacing:.12em;white-space:nowrap;z-index:1;color:var(--o-ink);
+  background:none;border:0;font-family:inherit;line-height:1.2}
+.tab::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--o-paper);border:1.5px solid var(--o-ink);border-bottom:0;border-radius:10px 10px 0 0;transform:perspective(26px) rotateX(9deg);transform-origin:bottom}
+.tab b{font-weight:700}
+.day > .tab small{color:var(--o-mute);margin-left:6px;letter-spacing:.04em}
+.day.has > .tab::before{background:var(--o-ink)}
+.day.has > .tab{color:var(--o-paper)} .day.has > .tab small{color:#BDBDB6}
+.ord{position:relative;margin-top:34px;border:1.5px solid var(--o-ink);border-radius:10px;background:var(--o-paper)}
+.ord > .tab{cursor:pointer}
+.ord.open > .tab{color:var(--o-paper)} .ord.open > .tab::before{background:#FF7A1A;border-color:var(--o-ink)}
+.ohead{width:100%;display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 14px;background:none;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.ohead .k{font-size:12px;color:var(--o-mute);letter-spacing:.04em;min-width:0}
+.ohead .eur{font-size:18px;font-weight:700;white-space:nowrap}
+.ohead .eur small{font-size:11px;font-weight:400;margin-left:6px;color:var(--o-mute)}
+/* 展开后的订单页：虚线内框，黑底反白标题 */
+.sheet{margin:0 12px 14px;border:1.5px dotted var(--o-ink);padding:14px;display:flex;flex-direction:column;gap:14px}
+.stitle{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:12px}
+.stitle .inv{background:var(--o-ink);color:var(--o-paper);padding:10px 14px;font-size:clamp(20px,3.4vw,30px);font-weight:700;letter-spacing:.08em;line-height:1.15;overflow-wrap:anywhere}
+.stitle .inv small{display:block;font-size:12px;font-weight:400;letter-spacing:.1em;margin-top:6px;opacity:.8}
+.stitle .box{border:1.5px solid var(--o-ink);padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}
+.stitle .box .lbl{font-size:10.5px;letter-spacing:.2em}
+.stitle .box .val{font-size:clamp(24px,4vw,34px);font-weight:700;line-height:1}
+.stitle .box .val small{font-size:12px;font-weight:400;color:var(--o-mute);margin-left:6px}
+.sgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.sgrid > div{border:1.5px solid var(--o-ink);padding:12px;min-width:0}
+.dotline{border-top:1.5px dotted var(--o-ink)}
+.lines{overflow-x:auto}
+.lines table{min-width:640px}
+.lines td.pend{font-weight:700;color:#C2410C}
+.dateedit{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dateedit input{font:inherit;font-size:13px;color:var(--o-ink);background:var(--o-paper);border:1.5px solid var(--o-ink);border-radius:6px;padding:4px 8px;width:auto;color-scheme:light}
+.onote{font-size:12px;color:var(--o-mute);border:1.5px dashed var(--o-ink);border-radius:10px;padding:14px;margin-top:12px;line-height:1.6}
+@media (max-width:720px){
+  .obar h1 .en{display:none}
+  .msum,.sgrid,.stitle{grid-template-columns:1fr}
+  .cab{grid-template-columns:minmax(0,1fr) 30px;gap:8px}
+  .drawer{padding:6px 10px 16px}
+  .tab{font-size:11.5px;padding:6px 14px 0}
+}
 @media (prefers-reduced-motion:reduce){.take:active{transform:none}}
 </style>
 </head>
@@ -323,10 +405,10 @@ input::placeholder{color:#6A6A6A}
       <div class="foot"><span>过去 7 天</span><span class="tag">示例</span></div>
     </section>
 
-    <section class="c white c-today">
-      <div class="head"><h3>今日接单数</h3><span class="tag">示例</span></div>
-      <div class="big num" style="margin-top:auto">126<span>笔</span></div>
-      <div class="foot">含加急单 24 笔</div>
+    <section class="c white c-today" data-go="orders" role="link" tabindex="0" style="cursor:pointer">
+      <div class="head"><h3>今日接单数</h3><span class="tag" id="todayTag">示例</span><span class="arrow" id="todayArrow" hidden>↗</span></div>
+      <div class="big num" style="margin-top:auto" id="todayNum">126<span>笔</span></div>
+      <div class="foot" id="todayFoot">含加急单 24 笔</div>
     </section>
 
     <section class="c c-more" data-go="stock-add" role="link" tabindex="0">
@@ -352,6 +434,30 @@ input::placeholder{color:#6A6A6A}
     </section>
   </div>
 </main>
+
+<!-- ================= 接单档案 ================= -->
+<div id="orders" hidden>
+ <div class="owrap">
+  <div class="obar">
+    <button class="obtn" type="button" data-go="home">← 控制台</button>
+    <h1>接单档案<span class="en"> · ORDER FILE</span></h1>
+    <button class="obtn" type="button" data-go="stock">计量库</button>
+  </div>
+  <div class="fnav">
+    <button class="obtn" type="button" id="oPrev" aria-label="上一个月">‹<small id="oPrevL"></small></button>
+    <div class="ftitle"><span class="ym" id="oYm">----.--</span><span class="ms" id="oMs"></span></div>
+    <button class="obtn" type="button" id="oNext" aria-label="下一个月"><small id="oNextL"></small>›</button>
+  </div>
+  <div class="cab">
+    <div class="drawer">
+      <div class="handle" aria-hidden="true"><i></i><i></i></div>
+      <div id="oSum"></div>
+      <div id="oDays"></div>
+    </div>
+    <nav class="rail" id="oRail" aria-label="跳到日期"></nav>
+  </div>
+ </div>
+</div>
 
 <!-- ================= 计量库 ================= -->
 <div id="stock" hidden>
@@ -475,13 +581,14 @@ async function load(){
   if (busy) return;
   try {
     const n = new Date(), from = new Date(n.getFullYear(), n.getMonth(), 1), to = new Date(n.getFullYear(), n.getMonth() + 1, 1);
-    const [it, mv, mm] = await Promise.all([ rpc('api_items', { p_code: code }), rpc('api_moves', { p_code: code, p_limit: 300 }),
+    const [it, mv, mm, om] = await Promise.all([ rpc('api_items', { p_code: code }), rpc('api_moves', { p_code: code, p_limit: 300 }),
       rpc('api_moves_range', { p_code: code, p_from: from.toISOString(), p_to: to.toISOString() }).catch(e => {
         if (String(e.message).includes('wrong_code')) throw e;
         return null;                // 数据库还没加这个函数：用最近记录代替
-      }) ]);
+      }),
+      rpc('api_orders', { p_code: code, p_from: ymd(from), p_to: ymd(to) }).catch(() => null) ]);
     if (busy) return;               // 有操作进行中，等它完成后再刷新
-    items = it || []; moves = mv || []; monthMoves = mm; loaded = true; notice(''); renderAll();
+    items = it || []; moves = mv || []; monthMoves = mm; curMonthOrders = om; loaded = true; notice(''); renderAll();
   } catch (e) {
     if (String(e.message).includes('wrong_code')) { logout('口令已更改，请重新输入'); return; }
     notice(errText(e));
@@ -518,7 +625,7 @@ function unitClass(it){
   if (it.unit === '卷' && (it.category === '布料' || it.category === '膜/背胶')) return 0;
   return 3;
 }
-function renderAll(){ if (view() === 'home') renderHome(); else render(); }
+function renderAll(){ const v = view(); if (v === 'home') { renderHome(); renderTodayCard(); } else if (v === 'stock') render(); }
 
 /* ---------- 主页 ---------- */
 const svgNS = 'http://www.w3.org/2000/svg';
@@ -609,6 +716,8 @@ function renderKpis(){
 }
 /* ---------- 计量库图表 ---------- */
 const DONUT = ['#FF7A1A', '#FF9F5A', '#FFC49A', '#F4F4F2', '#C9C9C6', '#9A9A96', '#6E6E6B'];
+const DONUT_PAPER = ['#FF7A1A', '#FF9F5A', '#FFC49A', '#2B2B29', '#6E6E6A', '#A3A39E', '#CFCFC9'];
+function isDark(hex){ const n = parseInt(hex.slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 120; }
 function monthUse(){
   const n = new Date(), y = n.getFullYear(), m = n.getMonth();
   const src = monthMoves || moves.filter(x => { const t = new Date(x.created_at); return t.getFullYear() === y && t.getMonth() === m; });
@@ -636,11 +745,12 @@ function roundedSector(cx, cy, Ro, Ri, a0, a1, h, c){
   return `M${os.line} A${c},${c} 0 0 1 ${os.arc} A${Ro},${Ro} 0 ${lo} 1 ${oe.arc} A${c},${c} 0 0 1 ${oe.line}`
        + ` L${ie.line} A${c},${c} 0 0 1 ${ie.arc} A${Ri},${Ri} 0 ${li} 0 ${is.arc} A${c},${c} 0 0 1 ${is.line} Z`;
 }
-function drawDonut(svg, parts, centerBig, centerSmall){
+function drawDonut(svg, parts, centerBig, centerSmall, opts = {}){
+  const L = !!opts.light, pal = opts.palette || DONUT;
   const cx = 180, cy = 145, R = 100, r = 56, total = parts.reduce((s, p) => s + p.v, 0);
   if (!total) {
-    svg.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="#262626" stroke-width="${R - r}"/>
-      <text x="${cx}" y="${cy + 5}" text-anchor="middle" fill="#8E8E8E" font-size="13">${esc(centerSmall)}</text>`;
+    svg.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${L ? '#DDDCD6' : '#262626'}" stroke-width="${R - r}"/>
+      <text x="${cx}" y="${cy + 5}" text-anchor="middle" fill="${L ? '#6B6B66' : '#8E8E8E'}" font-size="13">${esc(centerSmall)}</text>`;
     return;
   }
   // 小于 3% 的合并为“其他”，最多 6 块
@@ -652,7 +762,7 @@ function drawDonut(svg, parts, centerBig, centerSmall){
   let a = 0, out = '';
   const labels = [];
   ps.forEach((p, i) => {
-    const span = p.v / total * Math.PI * 2, col = DONUT[i % DONUT.length];
+    const span = p.v / total * Math.PI * 2, col = pal[i % pal.length];
     if (ps.length === 1) {
       out += `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${col}" stroke-width="${R - r}"/>`;
     } else {
@@ -660,10 +770,10 @@ function drawDonut(svg, parts, centerBig, centerSmall){
       if (d) out += `<path d="${d}" fill="${col}"><title>${esc(p.k)} ${Math.round(p.v / total * 100)}%</title></path>`;
     }
     const mid = a + span / 2, pct = p.v / total * 100;
-    if (pct >= 4) { const [tx, ty] = pt((R + r) / 2, mid); out += `<text x="${tx}" y="${ty + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${i >= 5 ? '#FFFFFF' : '#141414'}" font-family="Archivo,sans-serif">${Math.round(pct)}%</text>`; }
+    if (pct >= 4) { const [tx, ty] = pt((R + r) / 2, mid); out += `<text x="${tx}" y="${ty + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${isDark(col) ? '#FFFFFF' : '#141414'}" font-family="Archivo,sans-serif">${Math.round(pct)}%</text>`; }
     const [lx, ly] = pt(R + 16, mid), s = Math.sin(mid);
     labels.push({ x: lx, y: ly + (Math.cos(mid) < -0.5 ? 10 : Math.cos(mid) > 0.5 ? -2 : 4), side: s >= 0 ? 1 : -1,
-      anchor: s > 0.2 ? 'start' : s < -0.2 ? 'end' : 'middle', fill: i <= 2 ? col : '#CFCFCB', k: p.k });
+      anchor: s > 0.2 ? 'start' : s < -0.2 ? 'end' : 'middle', fill: i <= 2 ? (L ? '#C2410C' : col) : (L ? '#444440' : '#CFCFCB'), k: p.k });
     a += span;
   });
   // 同一侧的标签上下至少相隔 15，避免小块的名字叠在一起
@@ -672,8 +782,8 @@ function drawDonut(svg, parts, centerBig, centerSmall){
     for (let j = 1; j < L.length; j++) if (L[j].y - L[j - 1].y < 15) { L[j].y = L[j - 1].y + 15; if (L[j].anchor === 'middle') L[j].anchor = side > 0 ? 'start' : 'end'; }
   }
   out += labels.map(l => `<text x="${l.x}" y="${l.y}" text-anchor="${l.anchor}" font-size="12.5" font-weight="600" fill="${l.fill}">${esc(l.k)}</text>`).join('');
-  out += `<text x="${cx}" y="${cy + 2}" text-anchor="middle" font-size="22" font-weight="600" fill="#F2F2F2" font-family="Archivo,sans-serif">${esc(centerBig)}</text>
-    <text x="${cx}" y="${cy + 20}" text-anchor="middle" font-size="11" fill="#8E8E8E">${esc(centerSmall)}</text>`;
+  out += `<text x="${cx}" y="${cy + 2}" text-anchor="middle" font-size="${String(centerBig).length > 8 ? 17 : 22}" font-weight="600" fill="${L ? '#111111' : '#F2F2F2'}" font-family="Archivo,sans-serif">${esc(centerBig)}</text>
+    <text x="${cx}" y="${cy + 20}" text-anchor="middle" font-size="11" fill="${L ? '#6B6B66' : '#8E8E8E'}">${esc(centerSmall)}</text>`;
   svg.innerHTML = out;
 }
 function renderCharts(){
@@ -899,18 +1009,182 @@ $('#addForm').addEventListener('submit', e => {
   $('#addForm').reset(); $('#addForm').hidden = true; toast(`已添加 ${name}`);
 });
 
+/* ---------- 接单档案 ---------- */
+const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const pad2 = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const eur = n => '€' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+let oMonth = (() => { const n = new Date(); return { y: n.getFullYear(), m: n.getMonth() }; })();
+let oData = [], oState = 'idle', oOpen = new Set(), curMonthOrders = null;
+// 不同订单里的材质名称统一成同一种产品，便于统计需求量
+function prodName(c){
+  const s = String(c || '').replace(/\s*\(.*?\)\s*/g, '').trim();
+  if (s.includes('即时贴')) return '刻字即时贴';
+  if (s.includes('立体字')) return '3D立体字';
+  if (s.includes('软膜')) return '软膜灯箱';
+  if (s.includes('背胶')) return '背胶画面';
+  return s || '其他';
+}
+const unitOf = m => /字高/.test(m || '') ? 'cm' : /m²|㎡/.test(m || '') ? 'm²' : '';
+function demandOf(list){
+  const map = {};
+  for (const o of list) for (const c of (o.cats || [])) {
+    const k = prodName(c.cat), u = unitOf(c.method);
+    const d = map[k] || (map[k] = { k, qty: 0, eur: 0, area: 0, cm: 0 });
+    d.qty += Number(c.qty) || 0; d.eur += Number(c.amount) || 0;
+    if (u === 'm²') d.area += Number(c.qn) || 0; if (u === 'cm') d.cm += Number(c.qn) || 0;
+  }
+  return Object.values(map).sort((a, b) => b.eur - a.eur);
+}
+function clientShort(o){ return String(o.client || '').replace(/\s*\(.*?\)\s*/g, '').trim() || '未填客户'; }
+async function loadOrders(){
+  oState = 'loading'; renderOrders();
+  const from = ymd(new Date(oMonth.y, oMonth.m, 1)), to = ymd(new Date(oMonth.y, oMonth.m + 1, 1));
+  try { oData = await rpc('api_orders', { p_code: code, p_from: from, p_to: to }) || []; oState = 'ok'; }
+  catch (e) {
+    if (String(e.message).includes('wrong_code')) { logout('口令已更改，请重新输入'); return; }
+    oData = []; oState = /api_orders|function|schema cache|404/i.test(e.message) ? 'missing' : 'error'; if (oState === 'error') toast(errText(e));
+  }
+  renderOrders();
+}
+function demandHtml(dem){
+  const max = Math.max(...dem.map(d => d.eur), 1);
+  return `<ul class="dem">${dem.map(d => `<li><span>${esc(d.k)} <small>${fmt(d.qty)} 件${d.area ? ' · ' + fmt(d.area) + ' m²' : ''}${d.cm ? ' · ' + fmt(d.cm) + ' cm 字高' : ''}</small></span><b>${eur(d.eur)}</b><span class="bar"><i style="width:${d.eur / max * 100}%"></i></span></li>`).join('')}</ul>`;
+}
+function renderOrders(){
+  if (view() !== 'orders') return;
+  const { y, m } = oMonth, D = new Date(y, m + 1, 0).getDate(), now = new Date();
+  const isCur = now.getFullYear() === y && now.getMonth() === m;
+  const prev = new Date(y, m - 1, 1), next = new Date(y, m + 1, 1);
+  $('#oYm').textContent = `${y}.${pad2(m + 1)}`;
+  $('#oPrevL').textContent = `${prev.getMonth() + 1}月`; $('#oNextL').textContent = `${next.getMonth() + 1}月`;
+  const total = oData.reduce((s, o) => s + (Number(o.total_eur) || 0), 0);
+  $('#oMs').textContent = oState === 'loading' ? '读取中…' : `本月 ${oData.length} 单 · 报价合计 ${eur(total)}`;
+  // 侧边日期快捷键
+  const byDay = {};
+  for (const o of oData) { const d = +String(o.order_date).slice(8, 10); (byDay[d] = byDay[d] || []).push(o); }
+  let rail = '';
+  for (let d = 1; d <= D; d++) rail += `<button type="button" data-day="${d}" class="${byDay[d] ? 'has' : ''} ${isCur && d === now.getDate() ? 'today' : ''}" title="${m + 1}月${d}日${byDay[d] ? ' · ' + byDay[d].length + ' 单' : ''}">${pad2(d)}</button>`;
+  $('#oRail').innerHTML = rail;
+  // 月度汇总
+  if (oState === 'missing') {
+    $('#oSum').innerHTML = `<div class="onote">还没有接单数据表。请在 Supabase 的 SQL Editor 里运行一次 <b>upgrade_04_orders.sql</b>，然后刷新本页。</div>`;
+  } else if (!oData.length) {
+    $('#oSum').innerHTML = `<div class="onote">${oState === 'loading' ? '读取中…' : `${y} 年 ${m + 1} 月这个文件夹是空的，还没有订单。用左右按钮切换到其他月份。`}</div>`;
+  } else {
+    const dem = demandOf(oData);
+    const q = oData.reduce((s, o) => s + (Number(o.total_qty) || 0), 0), a = oData.reduce((s, o) => s + (Number(o.total_area) || 0), 0);
+    $('#oSum').innerHTML = `<div class="msum">
+      <div><h3>本月产品需求 / 按金额</h3><svg viewBox="0 0 360 290" id="oSumDonut" role="img" aria-label="本月产品需求占比"></svg></div>
+      <div><h3>MONTH / 本月汇总</h3>
+        <table class="otable"><tr><th>ORDERS</th><td class="r">${oData.length} 单</td></tr><tr><th>TOTAL</th><td class="r">${eur(total)}</td></tr>
+        <tr><th>QTY</th><td class="r">${fmt(q)} 张/套</td></tr><tr><th>AREA</th><td class="r">${fmt(+a.toFixed(2))} m²</td></tr></table>
+        ${demandHtml(dem)}</div></div>`;
+    drawDonut($('#oSumDonut'), dem.map(d => ({ k: d.k, v: d.eur })), eur(total).replace(/\.00$/, ''), '本月报价', { light: true, palette: DONUT_PAPER });
+  }
+  // 日期分隔卡 + 订单卡
+  const pos = ['3%', '36%', '62%'], opos = ['58%', '30%', '6%'];
+  let html = '';
+  for (let d = 1; d <= D; d++) {
+    const list = byDay[d] || [], wd = WEEK[new Date(y, m, d).getDay()];
+    const tab = `<span class="tab" style="left:${pos[(d - 1) % 3]}"><b>${pad2(d)}</b><small>${wd}${list.length ? ' · ' + list.length + ' 单' : ''}</small></span>`;
+    if (!list.length) { html += `<section class="day empty" id="oday-${d}">${tab}${isCur && d === now.getDate() ? 'TODAY · 今天还没有订单' : '—'}</section>`; continue; }
+    html += `<section class="day has" id="oday-${d}">${tab}` + list.map((o, i) => orderCard(o, i, opos)).join('') + `</section>`;
+  }
+  $('#oDays').innerHTML = html;
+  for (const o of oData) if (oOpen.has(o.id)) {
+    const svg = document.getElementById('od-' + o.id);
+    if (svg) drawDonut(svg, demandOf([o]).map(d => ({ k: d.k, v: d.eur })), eur(o.total_eur).replace(/\.00$/, ''), '订单报价', { light: true, palette: DONUT_PAPER });
+  }
+}
+function orderCard(o, i, opos){
+  const open = oOpen.has(o.id), cli = clientShort(o), items = o.items || [];
+  const pend = items.filter(x => x.amount === null || x.amount === undefined).length;
+  const projects = items.filter(x => x.no).length || items.length;
+  const head = `<span class="tab" style="left:${opos[i % 3]}" data-oid="${esc(o.id)}"><b>${esc(o.company || '三广')}</b> · ${esc(cli)}</span>
+    <button class="ohead" type="button" data-oid="${esc(o.id)}" aria-expanded="${open}">
+      <span class="k">${esc([o.booth && o.booth !== '待填写' ? '展位 ' + o.booth : '', o.event && o.event !== '待填写' ? o.event : '', projects + ' 项'].filter(Boolean).join(' · '))}</span>
+      <span class="eur">${eur(o.total_eur)}<small>${open ? '收起 −' : '展开 +'}</small></span></button>`;
+  if (!open) return `<article class="ord">${head}</article>`;
+  const dem = demandOf([o]);
+  const rows = items.map(x => `<tr><td>${esc(x.no || '')}</td><td>${esc(x.mat || '')}</td><td>${esc(x.desc || '')}</td>
+    <td class="r">${x.w ? fmt(x.w) + '×' + fmt(x.h) : ''}</td><td class="r">${x.qty != null ? fmt(x.qty) : ''}</td>
+    <td class="r">${x.qn != null ? fmt(x.qn) + ' ' + unitOf(x.method) : ''}</td><td class="r">${x.price != null ? '€' + fmt(x.price) : esc(x.price_raw || '')}</td>
+    <td class="r ${x.amount == null ? 'pend' : ''}">${x.amount != null ? eur(x.amount) : '待定'}</td></tr>`).join('');
+  return `<article class="ord open">${head}
+    <div class="sheet">
+      <div class="stitle">
+        <div class="inv">${esc(o.company || '三广')} · ${esc(cli)}<small>${esc(o.title || '')}</small></div>
+        <div class="box"><span class="lbl">QUOTE / 报价合计</span><span class="val">${eur(o.total_eur)}${pend ? `<small>另有 ${pend} 行待定</small>` : ''}</span></div>
+      </div>
+      <div class="sgrid">
+        <div><h3>DEMAND / 产品需求量</h3>
+          <table class="otable"><tr><th>项目</th><td class="r">${projects} 项 / ${items.length} 行</td></tr><tr><th>制作数量</th><td class="r">${fmt(o.total_qty)} 张/套</td></tr>
+          <tr><th>总面积</th><td class="r">${fmt(+(+o.total_area || 0).toFixed(2))} m²</td></tr><tr><th>字高合计</th><td class="r">${fmt(o.total_char_h)} cm</td></tr></table>
+          ${demandHtml(dem)}</div>
+        <div><h3>SHARE / 金额占比</h3><svg viewBox="0 0 360 290" id="od-${esc(o.id)}" role="img" aria-label="${esc(cli)} 各产品金额占比"></svg></div>
+      </div>
+      <div class="dotline"></div>
+      <div><h3>LINE ITEMS / 明细</h3><div class="lines"><table class="otable">
+        <tr><th>编号</th><th>材质</th><th>画面说明</th><th>尺寸 mm</th><th>数量</th><th>计价数量</th><th>单价</th><th>金额</th></tr>${rows}</table></div></div>
+      <table class="otable">
+        <tr><th>DATE</th><td><div class="dateedit"><input type="date" id="odt-${esc(o.id)}" value="${esc(String(o.order_date).slice(0, 10))}" aria-label="下单日期"><button class="obtn" type="button" data-savedate="${esc(o.id)}">改下单日期</button></div></td></tr>
+        <tr><th>CLIENT</th><td>${esc(o.client || '')}</td></tr>
+        <tr><th>PLACE</th><td>${esc([o.event, o.booth ? '展位 ' + o.booth : ''].filter(x => x && !/^展位 待填写$/.test(x)).join(' · ') || '待填写')}</td></tr>
+      </table>
+    </div></article>`;
+}
+$('#oDays').addEventListener('click', async e => {
+  const t = e.target.closest('[data-oid]');
+  if (t) { const id = t.dataset.oid; oOpen.has(id) ? oOpen.delete(id) : oOpen.add(id); renderOrders(); return; }
+  const s = e.target.closest('[data-savedate]');
+  if (s) {
+    const id = s.dataset.savedate, v = document.getElementById('odt-' + id).value;
+    if (!v) return;
+    s.disabled = true;
+    try {
+      await rpc('api_set_order_date', { p_code: code, p_id: id, p_date: v });
+      const [yy, mm] = v.split('-').map(Number);
+      toast(yy === oMonth.y && mm - 1 === oMonth.m ? `已改为 ${v}` : `已改为 ${v}，订单移到了 ${yy} 年 ${mm} 月的文件夹`);
+      await loadOrders(); load();
+    } catch (err) { notice(errText(err)); s.disabled = false; }
+  }
+});
+$('#oRail').addEventListener('click', e => {
+  const b = e.target.closest('[data-day]'); if (!b) return;
+  const el = document.getElementById('oday-' + b.dataset.day); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+function shiftMonth(k){ const d = new Date(oMonth.y, oMonth.m + k, 1); oMonth = { y: d.getFullYear(), m: d.getMonth() }; oOpen.clear(); window.scrollTo(0, 0); loadOrders(); }
+$('#oPrev').addEventListener('click', () => shiftMonth(-1));
+$('#oNext').addEventListener('click', () => shiftMonth(1));
+document.addEventListener('keydown', e => {
+  if (view() !== 'orders' || e.target.matches('input,select,textarea')) return;
+  if (e.key === 'ArrowLeft') shiftMonth(-1); if (e.key === 'ArrowRight') shiftMonth(1);
+});
+function renderTodayCard(){
+  const tag = $('#todayTag'); if (!tag) return;
+  if (!curMonthOrders) return;               // 数据库还没有接单表：保留示例
+  const t = ymd(new Date()), today = curMonthOrders.filter(o => String(o.order_date).slice(0, 10) === t);
+  const mt = curMonthOrders.reduce((s, o) => s + (Number(o.total_eur) || 0), 0);
+  tag.hidden = true; $('#todayArrow').hidden = false;
+  $('#todayNum').innerHTML = `${today.length}<span>笔</span>`;
+  $('#todayFoot').textContent = `本月 ${curMonthOrders.length} 笔 · 报价 ${eur(mt)}`;
+}
+
 /* ---------- 页面切换 ---------- */
-const view = () => location.hash === '#stock' ? 'stock' : 'home';
+const view = () => location.hash === '#stock' ? 'stock' : location.hash === '#orders' ? 'orders' : 'home';
 function route(){
   if (!code) return;
   const v = view();
-  $('#home').hidden = v !== 'home'; $('#stock').hidden = v !== 'stock';
-  document.title = v === 'stock' ? '计量库' : '生产控制台';
-  renderAll(); window.scrollTo(0, 0);
+  $('#home').hidden = v !== 'home'; $('#stock').hidden = v !== 'stock'; $('#orders').hidden = v !== 'orders';
+  document.title = v === 'stock' ? '计量库' : v === 'orders' ? '接单档案' : '生产控制台';
+  window.scrollTo(0, 0);
+  if (v === 'orders') loadOrders(); else renderAll();
 }
 window.addEventListener('hashchange', route);
 function go(target){
   if (target === 'home') { location.hash = ''; history.replaceState(null, '', location.pathname); route(); return; }
+  if (target === 'orders') { const n = new Date(); oMonth = { y: n.getFullYear(), m: n.getMonth() }; if (location.hash !== '#orders') location.hash = 'orders'; else route(); return; }
   if (target === 'stock-low') cat = '偏少';
   if (target === 'stock') cat = '全部';
   if (location.hash !== '#stock') location.hash = 'stock'; else route();
