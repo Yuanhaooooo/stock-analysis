@@ -162,6 +162,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 .sbar h1 small{display:block;font-size:11px;font-weight:600;letter-spacing:.22em;color:var(--s-muted);font-family:var(--f-num)}
 .ghost{background:transparent;border:1.5px solid var(--s-line);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--s-text)}
 .ghost:hover{border-color:var(--s-text)}
+.viz{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vcard{background:var(--s-card);border:1.5px solid var(--s-line);border-radius:20px;padding:16px 16px 10px;min-width:0}
+.vcard h2{margin:0;font-size:15px;font-weight:700}
+.vsub{margin:2px 0 0;font-size:12px;color:var(--s-muted)}
+.donut svg{width:100%;height:auto;display:block;margin-top:4px}
+.dotwrap{overflow-x:auto;margin-top:8px;-webkit-overflow-scrolling:touch}
+.dotwrap svg{min-width:640px;width:100%;height:auto;display:block}
+.vnote{font-size:12px;color:var(--s-muted);margin:6px 0 4px}
+.vnote b{color:var(--neon);font-family:var(--f-num)}
 .kpis{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px}
 .k{border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;border:0;text-align:left;min-width:0}
 .k small{font-size:12px;font-weight:600;letter-spacing:.04em}
@@ -232,6 +241,7 @@ input::placeholder{color:#6A6A6A}
 #login{width:min(100%,380px)}
 #login h2{font-size:26px}
 @media (max-width:600px){
+  .viz{grid-template-columns:1fr}
   .kpis{grid-template-columns:1fr 1fr} .k1{grid-column:1 / -1}
   .qty{font-size:34px} .take{width:58px;height:58px} .main{gap:10px} .grid2{grid-template-columns:1fr}
 }
@@ -362,6 +372,17 @@ input::placeholder{color:#6A6A6A}
     </div>
   </form>
 
+  <div class="viz">
+    <section class="vcard donut"><h2>本月材料消耗比例</h2><p class="vsub" id="useSub">按品类</p><svg viewBox="0 0 360 290" id="useDonut" role="img" aria-label="本月材料消耗比例"></svg></section>
+    <section class="vcard donut"><h2>剩余材料占比</h2><p class="vsub" id="leftSub">按品类</p><svg viewBox="0 0 360 290" id="leftDonut" role="img" aria-label="剩余材料占比"></svg></section>
+  </div>
+  <section class="vcard">
+    <h2 id="dotTitle">本月每日材料消耗</h2>
+    <p class="vsub">每个点是一天的取货量，点越大取得越多；高亮带连接每种材料用量最多的那一天</p>
+    <div class="dotwrap"><svg id="dotSvg" viewBox="0 0 760 120" role="img" aria-label="本月每日材料消耗点图"></svg></div>
+    <p class="vnote" id="dotNote"></p>
+  </section>
+
   <div class="kpis">
     <div class="k k1"><small>库存价值</small><span class="big num" id="kValue">–</span><small id="kCount"></small></div>
     <button class="k k2" type="button" data-filter="偏少"><small>缺货</small><span class="big num" id="kZero">–</span></button>
@@ -413,7 +434,7 @@ const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch { re
                 set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch {} } };
 
 let code = store.get('stock_code'), who = store.get('stock_who');
-let items = [], moves = [], cat = '全部', q = '', openId = null, confirmDel = null, loaded = false;
+let items = [], moves = [], monthMoves = null, cat = '全部', q = '', openId = null, confirmDel = null, loaded = false;
 let busy = 0, chain = Promise.resolve(), pollTimer = null;
 
 const ERR = { wrong_code:'口令不对', not_enough:'库存不够，不能再减', not_found:'这个材料已被删除', cannot_undo:'这条记录不能撤销',
@@ -450,9 +471,14 @@ $('#toastUndo').addEventListener('click', () => { $('#toast').hidden = true; if 
 async function load(){
   if (busy) return;
   try {
-    const [it, mv] = await Promise.all([ rpc('api_items', { p_code: code }), rpc('api_moves', { p_code: code, p_limit: 300 }) ]);
+    const n = new Date(), from = new Date(n.getFullYear(), n.getMonth(), 1), to = new Date(n.getFullYear(), n.getMonth() + 1, 1);
+    const [it, mv, mm] = await Promise.all([ rpc('api_items', { p_code: code }), rpc('api_moves', { p_code: code, p_limit: 300 }),
+      rpc('api_moves_range', { p_code: code, p_from: from.toISOString(), p_to: to.toISOString() }).catch(e => {
+        if (String(e.message).includes('wrong_code')) throw e;
+        return null;                // 数据库还没加这个函数：用最近记录代替
+      }) ]);
     if (busy) return;               // 有操作进行中，等它完成后再刷新
-    items = it || []; moves = mv || []; loaded = true; notice(''); renderAll();
+    items = it || []; moves = mv || []; monthMoves = mm; loaded = true; notice(''); renderAll();
   } catch (e) {
     if (String(e.message).includes('wrong_code')) { logout('口令已更改，请重新输入'); return; }
     notice(errText(e));
@@ -577,8 +603,120 @@ function renderKpis(){
   $('#kLow').innerHTML = `${low}<span>种</span>`; $('.k3').classList.toggle('zero', !low);
   $('#kToday').innerHTML = `${today}<span>次</span>`;
 }
+/* ---------- 计量库图表 ---------- */
+const DONUT = ['#FF7A1A', '#FF9F5A', '#FFC49A', '#F4F4F2', '#C9C9C6', '#9A9A96', '#6E6E6B'];
+function monthUse(){
+  const n = new Date(), y = n.getFullYear(), m = n.getMonth();
+  const src = monthMoves || moves.filter(x => { const t = new Date(x.created_at); return t.getFullYear() === y && t.getMonth() === m; });
+  return src.filter(x => (x.kind === '取货' || x.kind === '出库') && !x.undone && Number(x.delta) < 0);
+}
+function shortNum(v, unit){ return unit === '¥' ? (v >= 10000 ? '¥' + (v / 10000).toFixed(1) + '万' : money(v)) : fmt(v) + unit; }
+function drawDonut(svg, parts, centerBig, centerSmall){
+  const cx = 180, cy = 145, R = 96, r = 58, total = parts.reduce((s, p) => s + p.v, 0);
+  if (!total) {
+    svg.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="#262626" stroke-width="${R - r}"/>
+      <text x="${cx}" y="${cy + 5}" text-anchor="middle" fill="#8E8E8E" font-size="13">${esc(centerSmall)}</text>`;
+    return;
+  }
+  // 小于 3% 的合并为“其他”，最多 6 块
+  let ps = parts.filter(p => p.v > 0).sort((a, b) => b.v - a.v);
+  const big = ps.filter((p, i) => p.v / total >= 0.03 && i < 5), rest = ps.filter(p => !big.includes(p));
+  if (rest.length) big.push({ k: rest.length === 1 ? rest[0].k : '其他', v: rest.reduce((s, p) => s + p.v, 0) });
+  ps = big;
+  const pt = (rad, a) => [cx + rad * Math.sin(a), cy - rad * Math.cos(a)];
+  let a = 0, out = '';
+  const labels = [], gap = ps.length > 1 ? 0.05 : 0;
+  ps.forEach((p, i) => {
+    const span = p.v / total * Math.PI * 2, a0 = a + gap / 2, a1 = a + span - gap / 2, col = DONUT[i % DONUT.length];
+    const large = a1 - a0 > Math.PI ? 1 : 0, Ro = R - 3, Ri = r + 3;
+    if (ps.length === 1) {
+      out += `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${col}" stroke-width="${R - r}"/>`;
+    } else {
+      const [x0, y0] = pt(Ro, a0), [x1, y1] = pt(Ro, a1), [x2, y2] = pt(Ri, a1), [x3, y3] = pt(Ri, a0);
+      out += `<path d="M${x0},${y0} A${Ro},${Ro} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${Ri},${Ri} 0 ${large} 0 ${x3},${y3} Z" fill="${col}" stroke="${col}" stroke-width="6" stroke-linejoin="round"><title>${esc(p.k)} ${Math.round(p.v / total * 100)}%</title></path>`;
+    }
+    const mid = a + span / 2, pct = p.v / total * 100;
+    if (pct >= 4) { const [tx, ty] = pt((R + r) / 2, mid); out += `<text x="${tx}" y="${ty + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="${i >= 5 ? '#FFFFFF' : '#141414'}" font-family="Archivo,sans-serif">${Math.round(pct)}%</text>`; }
+    const [lx, ly] = pt(R + 16, mid), s = Math.sin(mid);
+    labels.push({ x: lx, y: ly + (Math.cos(mid) < -0.5 ? 10 : Math.cos(mid) > 0.5 ? -2 : 4), side: s >= 0 ? 1 : -1,
+      anchor: s > 0.2 ? 'start' : s < -0.2 ? 'end' : 'middle', fill: i <= 2 ? col : '#CFCFCB', k: p.k });
+    a += span;
+  });
+  // 同一侧的标签上下至少相隔 15，避免小块的名字叠在一起
+  for (const side of [1, -1]) {
+    const L = labels.filter(l => l.side === side).sort((p, q) => p.y - q.y);
+    for (let j = 1; j < L.length; j++) if (L[j].y - L[j - 1].y < 15) { L[j].y = L[j - 1].y + 15; if (L[j].anchor === 'middle') L[j].anchor = side > 0 ? 'start' : 'end'; }
+  }
+  out += labels.map(l => `<text x="${l.x}" y="${l.y}" text-anchor="${l.anchor}" font-size="12.5" font-weight="600" fill="${l.fill}">${esc(l.k)}</text>`).join('');
+  out += `<text x="${cx}" y="${cy + 2}" text-anchor="middle" font-size="22" font-weight="600" fill="#F2F2F2" font-family="Archivo,sans-serif">${esc(centerBig)}</text>
+    <text x="${cx}" y="${cy + 20}" text-anchor="middle" font-size="11" fill="#8E8E8E">${esc(centerSmall)}</text>`;
+  svg.innerHTML = out;
+}
+function renderCharts(){
+  const byId = new Map(items.map(i => [i.id, i]));
+  const used = monthUse(), priced = items.some(hasPrice);
+  // 左：本月消耗（按品类）。有价格按金额，没有价格按数量
+  const useCat = {}; let useTotal = 0;
+  for (const m of used) {
+    const it = byId.get(m.item_id), q = -Number(m.delta), v = priced && it && hasPrice(it) ? q * Number(it.price) : (priced ? 0 : q);
+    const k = it ? it.category : '已删除材料'; useCat[k] = (useCat[k] || 0) + v; useTotal += v;
+  }
+  $('#useSub').textContent = priced ? '按品类，按消耗金额计算' : '按品类，按数量计算';
+  drawDonut($('#useDonut'), Object.entries(useCat).map(([k, v]) => ({ k, v })), priced ? shortNum(useTotal, '¥') : fmt(useTotal), used.length ? '本月已消耗' : '本月还没有取货记录');
+  // 右：剩余库存（按品类）
+  const leftCat = {}; let leftTotal = 0;
+  for (const it of items) { const v = priced ? value(it) : Math.max(0, Number(it.qty)); leftCat[it.category] = (leftCat[it.category] || 0) + v; leftTotal += v; }
+  $('#leftSub').textContent = priced ? '按品类，按库存金额计算' : '按品类，按数量计算';
+  drawDonut($('#leftDonut'), Object.entries(leftCat).map(([k, v]) => ({ k, v })), priced ? shortNum(leftTotal, '¥') : fmt(leftTotal), '当前库存');
+  drawDots(used, byId);
+}
+function drawDots(used, byId){
+  const now = new Date(), D = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  $('#dotTitle').textContent = `${now.getMonth() + 1} 月每日材料消耗`;
+  // 每种材料每天的取货量
+  const rowsMap = new Map();
+  for (const m of used) {
+    const key = m.item_id || m.item_name, day = new Date(m.created_at).getDate(), q = -Number(m.delta);
+    if (!rowsMap.has(key)) { const it = byId.get(m.item_id); rowsMap.set(key, { name: it ? it.name : m.item_name, spec: it ? it.spec : '', unit: it ? it.unit : '', days: {}, total: 0 }); }
+    const r = rowsMap.get(key); r.days[day] = (r.days[day] || 0) + q; r.total += q;
+  }
+  const all = [...rowsMap.values()].sort((a, b) => b.total - a.total), rows = all.slice(0, 10);
+  const svg = $('#dotSvg'), W = 760, L = 170, Rpad = 20, top = 34, RH = 50, H = top + Math.max(rows.length, 1) * RH + 34;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const X = d => L + (d - 1) / (D - 1) * (W - L - Rpad);
+  let out = '';
+  for (let d = 1; d <= D; d += 3) out += `<line x1="${X(d)}" x2="${X(d)}" y1="${top - 10}" y2="${H - 30}" stroke="#202020"/><text x="${X(d)}" y="${H - 12}" text-anchor="middle" font-size="11" fill="#8E8E8E" font-family="Archivo,sans-serif">${d}日</text>`;
+  out += `<line x1="${X(now.getDate())}" x2="${X(now.getDate())}" y1="${top - 14}" y2="${H - 30}" stroke="#C8FF3D" stroke-width="1" stroke-dasharray="3 4" opacity=".6"/>`
+    + `<text x="${X(now.getDate())}" y="${top - 16}" text-anchor="middle" font-size="10" fill="#C8FF3D">今天</text>`;
+  if (!rows.length) {
+    svg.innerHTML = out + `<text x="${(L + W) / 2}" y="${top + 28}" text-anchor="middle" font-size="13" fill="#8E8E8E">本月还没有取货记录。在下方点 −1 取货后，这里会出现每天的消耗点。</text>`;
+    $('#dotNote').textContent = ''; return;
+  }
+  // 点的大小：本月所有单日取货量中，最小的为最小圆，最大的为最大圆，中间按比例
+  const qs = rows.flatMap(r => Object.values(r.days)), qmin = Math.min(...qs), qmax = Math.max(...qs), RMIN = 3.5, RMAX = 15;
+  const rad = q => qmax === qmin ? (RMIN + RMAX) / 2 : RMIN + (q - qmin) / (qmax - qmin) * (RMAX - RMIN);
+  const peaks = rows.map((r, i) => { const [d, q] = Object.entries(r.days).sort((a, b) => b[1] - a[1])[0]; return [X(+d), top + i * RH + RH / 2, rad(q)]; });
+  // 高亮带：连接每种材料用量最多的那一天
+  if (peaks.length > 1) out += `<path d="${smooth(peaks.map(p => [p[0], p[1]]))}" fill="none" stroke="#C8FF3D" stroke-opacity=".14" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>`;
+  out += peaks.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="${p[2] + 9}" fill="#C8FF3D" fill-opacity=".14"/>`).join('');
+  rows.forEach((r, i) => {
+    const y = top + i * RH + RH / 2, nm = r.name.length > 9 ? r.name.slice(0, 9) + '…' : r.name;
+    out += `<line x1="${L}" x2="${W - Rpad}" y1="${y}" y2="${y}" stroke="#3A3A3A" stroke-width="1.5"/>`
+      + `<line x1="${L}" x2="${L}" y1="${y - 4}" y2="${y + 4}" stroke="#3A3A3A" stroke-width="1.5"/><line x1="${W - Rpad}" x2="${W - Rpad}" y1="${y - 4}" y2="${y + 4}" stroke="#3A3A3A" stroke-width="1.5"/>`
+      + `<text x="0" y="${y - 2}" font-size="13" font-weight="700" fill="#F2F2F2">${esc(nm)}</text>`
+      + `<text x="0" y="${y + 14}" font-size="11" fill="#8E8E8E">${esc((r.spec ? r.spec.slice(0, 14) + ' · ' : '') + '共 ' + fmt(r.total) + ' ' + r.unit)}</text>`;
+    const peakDay = +Object.entries(r.days).sort((a, b) => b[1] - a[1])[0][0];
+    for (const [d, q] of Object.entries(r.days))
+      out += `<circle cx="${X(+d)}" cy="${y}" r="${rad(q)}" fill="${+d === peakDay ? '#C8FF3D' : '#F2F2F2'}"><title>${esc(r.name)} ${now.getMonth() + 1}月${d}日 取 ${fmt(q)} ${esc(r.unit)}</title></circle>`;
+  });
+  svg.innerHTML = out;
+  $('#dotNote').innerHTML = `最小圆 = <b>${fmt(qmin)}</b>，最大圆 = <b>${fmt(qmax)}</b>（单日取货数量）`
+    + (all.length > rows.length ? ` · 显示用量最多的 ${rows.length} 种，另有 ${all.length - rows.length} 种` : '')
+    + (monthMoves ? '' : ' · 当前只统计最近 300 条记录，运行升级脚本 upgrade_02 后可统计整月');
+}
+
 function render(){
-  renderChips(); renderKpis();
+  renderChips(); renderKpis(); if (loaded) renderCharts();
   const list = $('#list');
   const keep = {}; list.querySelectorAll('.more input,.more select').forEach(i => { keep[i.id] = i.value; });
   const focusId = list.contains(document.activeElement) ? document.activeElement.id : null;
