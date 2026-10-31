@@ -229,8 +229,27 @@ input::placeholder{color:#6A6A6A}
 .hint{font-size:12px;color:var(--s-muted)}
 .empty{text-align:center;padding:28px 16px;color:var(--s-muted);border:1.5px dashed var(--s-line);border-radius:18px}
 .notice{padding:10px 14px;border-radius:12px;background:var(--warn);color:#1A0B02;font-size:14px;font-weight:600}
-.log h2{margin:10px 0;font-size:12px;color:var(--s-muted);font-weight:700;letter-spacing:.2em}
-.log ul{list-style:none;margin:0;padding:0;border:1.5px solid var(--s-line);border-radius:18px;background:var(--s-card)}
+.log h2{margin:0;font-size:12px;color:var(--s-muted);font-weight:700;letter-spacing:.2em}
+.cal{background:var(--s-card);border:1.5px solid var(--s-line);border-radius:20px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:12px}
+.calhead{display:flex;align-items:center;gap:8px}
+.calhead .ym{font-family:var(--f-num);font-size:26px;font-weight:600;letter-spacing:-.02em;flex:1;text-align:center}
+.calhead .btn{padding:6px 12px}
+.calsum{font-size:12.5px;color:var(--s-muted);text-align:center;margin-top:-6px}
+.calsum b{color:var(--s-text);font-family:var(--f-num)}
+.calgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.calgrid .wd{font-size:11px;color:var(--s-muted);text-align:center;padding-bottom:2px}
+.cd{font:inherit;border:1.5px solid transparent;background:#1C1C1C;color:var(--s-text);border-radius:10px;min-height:54px;padding:5px 4px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;text-align:left;min-width:0}
+.cd.blank{background:transparent;cursor:default}
+.cd .dn{font-family:var(--f-num);font-size:13px;font-weight:600}
+.cd .cnt{font-size:10.5px;color:#0A0A0A;background:var(--neon);border-radius:999px;padding:0 6px;font-weight:700;margin-top:auto}
+.cd .use{font-size:10px;color:var(--warn);font-family:var(--f-num);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cd.none{background:#141414;color:#555}
+.cd.today{border-color:var(--s-text)}
+.cd.sel{border-color:var(--neon);background:#232A12}
+.cd:not(.blank):not(.none):hover{border-color:#555}
+.dayhead{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.dayhead small{color:var(--s-muted);font-weight:500}
+.log ul{list-style:none;margin:0;padding:0;border:1.5px solid var(--s-line);border-radius:14px;background:#101010}
 .log li{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:9px 14px;border-top:1.5px solid var(--s-line);font-size:14px}
 .log li:first-child{border-top:0}
 .log li.undone{opacity:.4;text-decoration:line-through}
@@ -246,6 +265,7 @@ input::placeholder{color:#6A6A6A}
 #login{width:min(100%,380px)}
 #login h2{font-size:26px}
 @media (max-width:600px){
+  .cd .use{display:none} .cd{min-height:46px}
   .viz{grid-template-columns:1fr}
   .kpis{grid-template-columns:1fr 1fr} .k1{grid-column:1 / -1}
   .qty{font-size:34px} .qty.long{font-size:22px} .take{width:58px;height:58px} .tn{width:50px;height:58px;font-size:19px;border-radius:14px} .main{gap:8px;padding-left:14px} .grid2{grid-template-columns:1fr}
@@ -535,8 +555,20 @@ input::placeholder{color:#6A6A6A}
   <div id="list" class="list"></div>
 
   <section class="log" id="logSec" hidden>
-    <h2>最近记录</h2>
-    <ul id="log"></ul>
+    <div class="cal">
+      <div class="calhead">
+        <button class="btn" type="button" id="calPrev" aria-label="上个月">‹</button>
+        <div class="ym" id="calYm">----.--</div>
+        <button class="btn" type="button" id="calNext" aria-label="下个月">›</button>
+      </div>
+      <h2 style="text-align:center">出入库记录 · 点日期查看当天全部记录</h2>
+      <div class="calsum" id="calSum"></div>
+      <div class="calgrid" id="calGrid"></div>
+      <div id="calDay" hidden>
+        <div class="dayhead"><span id="calDayT"></span><button class="btn" type="button" id="calClose">收起</button></div>
+        <ul id="log" style="margin-top:8px"></ul>
+      </div>
+    </div>
   </section>
  </div>
 </div>
@@ -556,6 +588,7 @@ const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch { re
                 set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch {} } };
 
 let code = store.get('stock_code'), who = store.get('stock_who');
+let calY = new Date().getFullYear(), calM = new Date().getMonth(), calDay = new Date().getDate(), calMoves = null, calKey = '';
 let items = [], moves = [], monthMoves = null, cat = '全部', q = '', openId = null, confirmDel = null, loaded = false;
 let busy = 0, chain = Promise.resolve(), pollTimer = null;
 
@@ -941,18 +974,64 @@ function card(it){
   </div>`;
 }
 function catOptions(sel){ const all = [...new Set([...CATS, sel].filter(Boolean))]; return all.map(c => `<option${c === sel ? ' selected' : ''}>${esc(c)}</option>`).join(''); }
+function calSource(){
+  const n = new Date();
+  if (calY === n.getFullYear() && calM === n.getMonth())
+    return monthMoves || moves.filter(x => { const t = new Date(x.created_at); return t.getFullYear() === calY && t.getMonth() === calM; });
+  return calKey === `${calY}-${calM}` ? (calMoves || []) : null;
+}
+async function loadCal(){
+  const n = new Date(); if (calY === n.getFullYear() && calM === n.getMonth()) { renderLog(); return; }
+  const key = `${calY}-${calM}`; calKey = key; calMoves = null; renderLog();
+  try {
+    const r = await rpc('api_moves_range', { p_code: code, p_from: new Date(calY, calM, 1).toISOString(), p_to: new Date(calY, calM + 1, 1).toISOString() });
+    if (calKey === key) { calMoves = r || []; renderLog(); }
+  } catch (e) {
+    if (calKey !== key) return;
+    calMoves = moves.filter(x => { const t = new Date(x.created_at); return t.getFullYear() === calY && t.getMonth() === calM; });
+    renderLog(); toast('只能显示最近的记录：请在数据库运行 upgrade_02_month.sql');
+  }
+}
+function moveRow(m, byId){
+  const t = new Date(m.created_at), d = Number(m.delta), it = byId.get(m.item_id);
+  const canUndo = !m.undone && m.item_id && m.kind !== '新增', u = it ? it.unit : '';
+  return `<li class="${m.undone ? 'undone' : ''}"><time>${hhmm(t)}</time>
+    <span class="n">${esc(it ? label(it) : m.item_name)}<br><small>${esc(m.kind)}${m.who ? ' · ' + esc(m.who) : ''} · 剩 ${fmt(m.qty_after)} ${esc(u)}${m.undone ? ' · 已撤销' : ''}</small></span>
+    <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}${u ? '<small>' + esc(u) + '</small>' : ''}</span>
+    ${canUndo ? `<button class="btn" data-undo="${esc(m.id)}">撤销</button>` : '<span></span>'}</li>`;
+}
 function renderLog(){
-  $('#logSec').hidden = !moves.length;
-  const byId = new Map(items.map(i => [i.id, i]));
-  $('#log').innerHTML = moves.slice(0, 30).map(m => {
-    const t = new Date(m.created_at), d = Number(m.delta);
-    const ts = `${t.getMonth()+1}/${t.getDate()}<br>${hhmm(t)}`;
-    const canUndo = !m.undone && m.item_id && m.kind !== '新增';
-    return `<li class="${m.undone ? 'undone' : ''}"><time>${ts}</time>
-      <span class="n">${esc(byId.has(m.item_id) ? label(byId.get(m.item_id)) : m.item_name)}<br><small>${esc(m.kind)}${m.who ? ' · ' + esc(m.who) : ''} · 剩 ${fmt(m.qty_after)}</small></span>
-      <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}${byId.has(m.item_id) && isArea(byId.get(m.item_id)) ? '<small>' + esc(byId.get(m.item_id).unit) + '</small>' : ''}</span>
-      ${canUndo ? `<button class="btn" data-undo="${esc(m.id)}">撤销</button>` : '<span></span>'}</li>`;
-  }).join('');
+  $('#logSec').hidden = !loaded;
+  const byId = new Map(items.map(i => [i.id, i])), src = calSource(), n = new Date();
+  $('#calYm').textContent = `${calY}.${String(calM + 1).padStart(2, '0')}`;
+  const D = new Date(calY, calM + 1, 0).getDate(), lead = (new Date(calY, calM, 1).getDay() + 6) % 7;   // 周一开头
+  const days = {};
+  const isImport = m => m.kind === '新增' && m.who === '初始导入';
+  const imports = {};
+  for (const m of (src || [])) { const d = new Date(m.created_at).getDate(); if (isImport(m)) { imports[d] = (imports[d] || 0) + 1; continue; } (days[d] = days[d] || []).push(m); }
+  const usedOf = list => { const u = {}; for (const m of list) if ((m.kind === '取货' || m.kind === '出库') && !m.undone && Number(m.delta) < 0) { const it = byId.get(m.item_id), k = it ? it.unit : '件'; u[k] = (u[k] || 0) - Number(m.delta); } return u; };
+  const usedText = u => Object.entries(u).sort((a, b) => b[1] - a[1]).map(([k, v]) => fmt(+v.toFixed(1)) + k).join(' ');
+  if (!src) { $('#calSum').textContent = '读取中…'; $('#calGrid').innerHTML = ''; $('#calDay').hidden = true; return; }
+  const all = src.filter(m => !isImport(m));
+  const takes = src.filter(m => m.kind === '取货' && !m.undone).length, ins = src.filter(m => m.kind === '入库' && !m.undone).length;
+  $('#calSum').innerHTML = all.length ? `本月 <b>${all.length}</b> 条 · 取货 <b>${takes}</b> 次 · 入库 <b>${ins}</b> 次 · 消耗 <b>${usedText(usedOf(src)) || '0'}</b>` : '这个月没有记录';
+  let g = ['一', '二', '三', '四', '五', '六', '日'].map(w => `<span class="wd">${w}</span>`).join('');
+  for (let i = 0; i < lead; i++) g += '<span class="cd blank"></span>';
+  for (let d = 1; d <= D; d++) {
+    const list = days[d] || [], imp = imports[d] || 0, isT = calY === n.getFullYear() && calM === n.getMonth() && d === n.getDate(), u = usedText(usedOf(list));
+    g += `<button type="button" class="cd ${list.length || imp ? '' : 'none'} ${isT ? 'today' : ''} ${calDay === d ? 'sel' : ''}" data-cd="${d}" ${list.length || imp ? '' : 'disabled'} aria-label="${calM + 1}月${d}日 ${list.length} 条记录">
+      <span class="dn">${d}</span>${u ? `<span class="use">−${esc(u)}</span>` : ''}${list.length ? `<span class="cnt">${list.length}</span>` : ''}</button>`;
+  }
+  $('#calGrid').innerHTML = g;
+  const list = calDay ? (days[calDay] || []) : [];
+  $('#calDay').hidden = !calDay;
+  if (calDay) {
+    const sorted = list.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    $('#calDayT').innerHTML = `${calM + 1} 月 ${calDay} 日 <small>${list.length} 条记录${usedText(usedOf(list)) ? ' · 消耗 ' + esc(usedText(usedOf(list))) : ''}</small>`;
+    const imp = imports[calDay] || 0;
+    $('#log').innerHTML = (sorted.length ? sorted.map(m => moveRow(m, byId)).join('') : '<li><span></span><span class="n">这天没有出入库记录</span><span></span><span></span></li>')
+      + (imp ? `<li><span></span><span class="n"><small>另有 ${imp} 条建库时的初始导入记录（每种材料的初始数量），导出的 Excel 里可以看到</small></span><span></span><span></span></li>` : '');
+  }
 }
 
 /* ---------- 操作 ---------- */
@@ -1029,10 +1108,15 @@ $('#list').addEventListener('click', e => {
     queue(() => rpc('api_delete_item', { p_code: code, p_item: id })); toast('已删除'); return;
   }
 });
+$('#calGrid').addEventListener('click', e => { const b = e.target.closest('[data-cd]'); if (!b) return; const d = +b.dataset.cd; calDay = calDay === d ? null : d; renderLog(); if (calDay) $('#calDay').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+$('#calClose').addEventListener('click', () => { calDay = null; renderLog(); });
+function calShift(k){ const d = new Date(calY, calM + k, 1); calY = d.getFullYear(); calM = d.getMonth(); calDay = null; loadCal(); }
+$('#calPrev').addEventListener('click', () => calShift(-1));
+$('#calNext').addEventListener('click', () => calShift(1));
 $('#log').addEventListener('click', e => {
   const b = e.target.closest('[data-undo]'); if (!b) return;
   b.disabled = true;
-  queue(() => rpc('api_undo', { p_code: code, p_move: b.dataset.undo })); toast('已撤销');
+  queue(async () => { await rpc('api_undo', { p_code: code, p_move: b.dataset.undo }); const n = new Date(); if (calY !== n.getFullYear() || calM !== n.getMonth()) loadCal(); }); toast('已撤销');
 });
 $('#chips').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; openId = null; render(); } });
 document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { cat = b.dataset.filter; openId = null; render(); $('#chips').scrollIntoView({ block: 'start', behavior: 'smooth' }); }));
