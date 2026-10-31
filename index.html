@@ -214,6 +214,7 @@ input::placeholder{color:#6A6A6A}
 .badge.low{background:var(--warn);color:#1A0B02} .badge.zero{background:var(--alarm);color:#1A0505}
 .qty{font-family:var(--f-num);font-weight:600;font-size:42px;line-height:.9;text-align:right;min-width:2ch;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .qty small{display:block;font-family:var(--f-body);font-size:11px;font-weight:600;color:var(--s-muted);margin-top:4px;letter-spacing:0}
+.qty.long{font-size:30px}
 .item.low .qty{color:var(--warn)} .item.zero .qty{color:var(--alarm)}
 .take{width:66px;height:66px;border-radius:16px;background:var(--neon);color:#0A0A0A;border:0;font-family:var(--f-num);font-weight:700;font-size:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;padding:0}
 .take span{font-family:var(--f-body);font-size:11px;font-weight:700;margin-top:3px}
@@ -235,6 +236,7 @@ input::placeholder{color:#6A6A6A}
 .log li.undone{opacity:.4;text-decoration:line-through}
 .log time{color:var(--s-muted);font-family:var(--f-num);font-size:12px;line-height:1.3}
 .log .d{font-family:var(--f-num);font-weight:700;font-size:20px;white-space:nowrap}
+.log .d small{font-size:12px;margin-left:2px}
 .log .d.neg{color:var(--warn)} .log .d.pos{color:var(--neon)}
 .log .n{min-width:0;overflow-wrap:anywhere} .log .n small{color:var(--s-muted)}
 .log button{padding:4px 10px;font-size:12px}
@@ -246,7 +248,7 @@ input::placeholder{color:#6A6A6A}
 @media (max-width:600px){
   .viz{grid-template-columns:1fr}
   .kpis{grid-template-columns:1fr 1fr} .k1{grid-column:1 / -1}
-  .qty{font-size:34px} .take{width:58px;height:58px} .tn{width:50px;height:58px;font-size:19px;border-radius:14px} .main{gap:8px;padding-left:14px} .grid2{grid-template-columns:1fr}
+  .qty{font-size:34px} .qty.long{font-size:22px} .take{width:58px;height:58px} .tn{width:50px;height:58px;font-size:19px;border-radius:14px} .main{gap:8px;padding-left:14px} .grid2{grid-template-columns:1fr}
 }
 /* ---------- 接单档案：黑底上的索引卡抽屉（参考图的样式，图片处用纯色） ---------- */
 #orders{background:#000;color:#fff;min-height:100vh;font-family:var(--f-body)}
@@ -539,7 +541,7 @@ input::placeholder{color:#6A6A6A}
  </div>
 </div>
 
-<datalist id="units"><option value="卷"><option value="张"><option value="根"><option value="个"><option value="瓶"><option value="箱"><option value="件"></datalist>
+<datalist id="units"><option value="卷"><option value="张"><option value="根"><option value="个"><option value="瓶"><option value="箱"><option value="件"><option value="㎡"></datalist>
 <div id="toast" class="toast" hidden role="status"><span id="toastText"></span><button type="button" id="toastUndo">撤销</button></div>
 
 <script>
@@ -612,8 +614,8 @@ function adjust(it, delta, kind){
   queue(async () => {
     await rpc('api_adjust', { p_code: code, p_item: it.id, p_delta: delta, p_kind: kind, p_who: who });
   });
-  const word = kind === '取货' ? `已取 ${fmt(-delta)}` : kind === '入库' ? `入库 ${fmt(delta)}` : `出库 ${fmt(-delta)}`;
-  toast(`${label(it)} ${word}，剩 ${fmt(it.qty)} ${it.unit}`, () => undoLatest(it.id, kind, delta));
+  const u = it.unit, word = kind === '取货' ? `已取 ${fmt(-delta)} ${u}` : kind === '入库' ? `入库 ${fmt(delta)} ${u}` : `出库 ${fmt(-delta)} ${u}`;
+  toast(`${hhmm(new Date())} · ${label(it)} ${word}，剩 ${fmt(it.qty)} ${u}`, () => undoLatest(it.id, kind, delta));
 }
 function undoLatest(itemId, kind, delta){
   queue(async () => {
@@ -627,10 +629,16 @@ function undoLatest(itemId, kind, delta){
 
 /* ---------- 共用计算 ---------- */
 const label = it => it.name + (it.spec ? '（' + it.spec.split(' ')[0] + '）' : '');
+const isArea = it => Number(it.roll_area) > 0;                      // 按面积（㎡）记录的卷材
+const rolls = it => isArea(it) ? Number(it.qty) / Number(it.roll_area) : null;
+const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const stamp = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${hhmm(d)}`;
+function specArea(spec){ const m = String(spec || '').match(/(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*m/); return m ? +(m[1] * m[2]).toFixed(4) : null; }
 function state(it){ const n = Number(it.qty), low = Number(it.low); return n <= 0 ? 'zero' : (n <= low ? 'low' : ''); }
 const value = it => hasPrice(it) ? Number(it.price) * Math.max(0, Number(it.qty)) : 0;
 const isToday = d => { const t = new Date(d), n = new Date(); return t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() && t.getDate() === n.getDate(); };
 function unitClass(it){
+  if (it.unit === '㎡') return 0;
   if (it.unit === '张') return 1;
   if (it.unit === '根' || /元\/米/.test(it.price_note || '')) return 2;
   if (it.unit === '卷' && (it.category === '布料' || it.category === '膜/背胶')) return 0;
@@ -883,7 +891,7 @@ function render(){
   }
   list.innerHTML = html;
   for (const k in keep) { const el = document.getElementById(k); if (el) el.value = keep[k]; }
-  list.querySelectorAll('.tn').forEach(t => { const v = Number(t.value); t.nextElementSibling.firstChild.textContent = '−' + (v > 0 ? fmt(v) : '?'); });
+  list.querySelectorAll('.tn').forEach(t => { const v = Number(t.value); t.nextElementSibling.firstChild.textContent = '−' + (v > 0 ? fmt(v) : (t.classList.contains('area') ? '㎡' : '?')); });
   if (focusId) { const el = document.getElementById(focusId); if (el) el.focus(); }
   renderLog();
 }
@@ -891,20 +899,23 @@ function card(it){
   const n = Number(it.qty), st = state(it), id = esc(it.id);
   const badge = st === 'zero' ? '<span class="badge zero">缺货</span>' : st === 'low' ? '<span class="badge low">偏少</span>' : '';
   const meta = [it.spec, it.code].filter(Boolean).map(esc).join(' · ')
+    + (isArea(it) ? `<span class="price">约 ${fmt(+rolls(it).toFixed(1))} 卷 · 每卷 ${fmt(it.roll_area)}㎡</span>` : '')
     + (hasPrice(it) ? `<span class="price">${money(it.price)}/${esc(it.unit)}</span>` : '');
-  const open = openId === it.id;
+  const open = openId === it.id, area = isArea(it), sa = !area && it.unit === '卷' ? specArea(it.spec) : null;
   return `<div class="item ${st}" data-id="${id}">
     <div class="main">
       <div class="info"><button class="name" data-act="toggle" aria-expanded="${open}">${esc(it.name)}</button>
         <div class="meta">${meta}${badge}</div></div>
-      <div class="qty">${fmt(n)}<small>${esc(it.unit)}</small></div>
-      <input class="tn" id="tn-${id}" type="number" inputmode="decimal" min="0" step="any" value="1" aria-label="${esc(it.name)} 取货数量" ${n > 0 ? '' : 'disabled'}>
+      <div class="qty${fmt(n).length > 4 ? ' long' : ''}">${fmt(n)}<small>${esc(it.unit)}</small></div>
+      <input class="tn${area ? ' area' : ''}" id="tn-${id}" type="number" inputmode="decimal" min="0" step="any" value="${area ? '' : '1'}" placeholder="${area ? '㎡' : ''}" aria-label="${esc(it.name)} 取货数量（${esc(it.unit)}）" ${n > 0 ? '' : 'disabled'}>
       <button class="take" data-act="take" ${n > 0 ? '' : 'disabled'} aria-label="${esc(it.name)} 取货">−1<span>取货</span></button>
     </div>
     ${open ? `<div class="more">
-      <div class="line"><input id="amt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="数量">
-        <button class="btn" data-act="in">入库 ＋</button><button class="btn" data-act="out">出库 −</button></div>
-      <div class="line"><input id="cnt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${fmt(n)}">
+      <div class="line"><input id="amt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${area ? '㎡ 或 卷数' : '数量'}">
+        <button class="btn" data-act="in">入库 ＋${area ? '㎡' : ''}</button>${area ? '<button class="btn" data-act="inroll">入库 ＋整卷</button>' : ''}<button class="btn" data-act="out">出库 −${area ? '㎡' : ''}</button></div>
+      ${area ? `<div class="hint">按面积记录：1 卷 = ${fmt(it.roll_area)} ㎡。取货、出库、盘点都填平方米；整卷来货可填卷数点“入库 ＋整卷”。</div>` : ''}
+      ${sa ? `<div class="line"><span class="hint">规格 ${esc(it.spec)}，每卷 ${fmt(sa)} ㎡</span><button class="btn" data-act="toarea" data-area="${sa}">改为按面积（㎡）记录</button></div>` : ''}
+      <div class="line"><input id="cnt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${fmt(n)}${area ? ' ㎡' : ''}">
         <button class="btn" data-act="count">盘点：改成实际数量</button></div>
       <div class="grid2">
         <div class="field"><label for="en-${id}">名称</label><input id="en-${id}" value="${esc(it.name)}"></div>
@@ -928,11 +939,11 @@ function renderLog(){
   const byId = new Map(items.map(i => [i.id, i]));
   $('#log').innerHTML = moves.slice(0, 30).map(m => {
     const t = new Date(m.created_at), d = Number(m.delta);
-    const ts = `${t.getMonth()+1}/${t.getDate()}<br>${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    const ts = `${t.getMonth()+1}/${t.getDate()}<br>${hhmm(t)}`;
     const canUndo = !m.undone && m.item_id && m.kind !== '新增';
     return `<li class="${m.undone ? 'undone' : ''}"><time>${ts}</time>
       <span class="n">${esc(byId.has(m.item_id) ? label(byId.get(m.item_id)) : m.item_name)}<br><small>${esc(m.kind)}${m.who ? ' · ' + esc(m.who) : ''} · 剩 ${fmt(m.qty_after)}</small></span>
-      <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}</span>
+      <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}${byId.has(m.item_id) && isArea(byId.get(m.item_id)) ? '<small>㎡</small>' : ''}</span>
       ${canUndo ? `<button class="btn" data-undo="${esc(m.id)}">撤销</button>` : '<span></span>'}</li>`;
   }).join('');
 }
@@ -940,16 +951,16 @@ function renderLog(){
 /* ---------- 操作 ---------- */
 function takeFrom(it){
   const box = document.getElementById('tn-' + it.id), v = Number(box && box.value);
-  if (!(v > 0)) { if (box) { box.value = '1'; box.focus(); } toast('请输入要取的数量'); return; }
+  if (!(v > 0)) { if (box) { box.value = isArea(it) ? '' : '1'; box.focus(); } toast(isArea(it) ? '请输入这次用掉的平方米' : '请输入要取的数量'); return; }
   if (v > Number(it.qty)) { toast(`库存只有 ${fmt(it.qty)} ${it.unit}，不能取 ${fmt(v)}`); return; }
-  if (box) box.value = '1';
+  if (box) box.value = isArea(it) ? '' : '1';
   adjust(it, -v, '取货');
 }
 // 取货按钮上的数字跟着输入框变；在输入框里按回车直接取货
 $('#list').addEventListener('input', e => {
   if (!e.target.classList.contains('tn')) return;
   const v = Number(e.target.value), btn = e.target.nextElementSibling;
-  btn.firstChild.textContent = '−' + (v > 0 ? fmt(v) : '?');
+  btn.firstChild.textContent = '−' + (v > 0 ? fmt(v) : (e.target.classList.contains('area') ? '㎡' : '?'));
 });
 $('#list').addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target.classList.contains('tn')) return;
@@ -962,6 +973,17 @@ $('#list').addEventListener('click', e => {
   const act = b.dataset.act, id = it.id, val = p => document.getElementById(p + id).value;
   if (act === 'toggle') { openId = openId === id ? null : id; confirmDel = null; render(); return; }
   if (act === 'take') { takeFrom(it); return; }
+  if (act === 'inroll') {
+    const k = Number(val('amt-'));
+    if (!(k > 0)) { document.getElementById('amt-' + id).focus(); return; }
+    document.getElementById('amt-' + id).value = '';
+    adjust(it, +(k * Number(it.roll_area)).toFixed(4), '入库'); return;
+  }
+  if (act === 'toarea') {
+    const a = Number(b.dataset.area); if (!(a > 0)) return;
+    queue(() => rpc('api_set_roll_area', { p_code: code, p_item: id, p_area: a }));
+    toast(`${label(it)} 已改为按面积记录，1 卷 = ${fmt(a)} ㎡`); return;
+  }
   if (act === 'in' || act === 'out') {
     const v = Number(val('amt-'));
     if (!(v > 0)) { document.getElementById('amt-' + id).focus(); return; }
@@ -1222,15 +1244,41 @@ $('#settings').addEventListener('submit', async e => {
   $('#settings').hidden = true;
 });
 $('#logoutBtn').addEventListener('click', () => logout(''));
-$('#exportBtn').addEventListener('click', () => {
-  const rows = [['分类','材料','规格','编号','单位','当前数量','提醒值','单价(元)','价格备注','库存金额(元)']].concat(items.map(i => [i.category, i.name, i.spec, i.code, i.unit, fmt(i.qty), fmt(i.low),
-    hasPrice(i) ? fmt(i.price) : '', i.price_note || '', hasPrice(i) ? value(i).toFixed(2) : '']));
-  const csv = '﻿' + rows.map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
-  const d = new Date(), a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = `库存_${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}.csv`; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-});
+$('#exportBtn').addEventListener('click', exportAll);
+async function exportAll(){
+  toast('正在准备表格…');
+  let all = null;
+  try { all = await rpc('api_moves_range', { p_code: code, p_from: '2000-01-01T00:00:00Z', p_to: new Date(Date.now() + 86400000).toISOString() }); } catch {}
+  if (!all) all = moves.slice();
+  const n = new Date(), mStart = new Date(n.getFullYear(), n.getMonth(), 1);
+  const used = {}, usedM = {};
+  for (const m of all) if ((m.kind === '取货' || m.kind === '出库') && !m.undone && Number(m.delta) < 0 && m.item_id) {
+    used[m.item_id] = (used[m.item_id] || 0) - Number(m.delta);
+    if (new Date(m.created_at) >= mStart) usedM[m.item_id] = (usedM[m.item_id] || 0) - Number(m.delta);
+  }
+  const r2 = x => x === '' || x == null ? '' : +Number(x).toFixed(2);
+  const stockRows = [['分类','材料','规格','编号','记录单位','当前库存','每卷面积(㎡)','约合卷数','总面积(㎡)','本月消耗','本月消耗面积(㎡)','累计消耗','累计消耗面积(㎡)','提醒值','单价(元)','单价单位','价格备注','库存金额(元)']]
+    .concat(items.map(i => { const A = isArea(i), um = usedM[i.id] || 0, ua = used[i.id] || 0;
+      return [i.category, i.name, i.spec, i.code, i.unit, r2(i.qty), A ? r2(i.roll_area) : '', A ? r2(rolls(i)) : '', A ? r2(i.qty) : '',
+        r2(um), A ? r2(um) : '', r2(ua), A ? r2(ua) : '', r2(i.low), hasPrice(i) ? r2(i.price) : '', hasPrice(i) ? '元/' + i.unit : '', i.price_note || '', hasPrice(i) ? r2(value(i)) : '']; }));
+  const byId = new Map(items.map(i => [i.id, i]));
+  const logRows = [['记录时间','材料','规格','类型','数量','单位','面积(㎡)','操作后库存','记录人','状态']]
+    .concat(all.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(m => { const it = byId.get(m.item_id), A = it && isArea(it);
+      return [stamp(new Date(m.created_at)), it ? it.name : m.item_name, it ? it.spec : '', m.kind, r2(m.delta), it ? it.unit : '', A ? r2(m.delta) : '', r2(m.qty_after), m.who || '', m.undone ? '已撤销' : '']; }));
+  const fname = `库存_${n.getFullYear()}-${n.getMonth()+1}-${n.getDate()}`;
+  try {
+    if (!window.XLSX) await new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); });
+    const wb = XLSX.utils.book_new(), s1 = XLSX.utils.aoa_to_sheet(stockRows), s2 = XLSX.utils.aoa_to_sheet(logRows);
+    s1['!cols'] = stockRows[0].map((h, i) => ({ wch: i === 1 ? 22 : i === 2 ? 18 : Math.max(9, h.length * 2) }));
+    s2['!cols'] = [{ wch: 17 }, { wch: 22 }, { wch: 18 }, { wch: 7 }, { wch: 10 }, { wch: 6 }, { wch: 10 }, { wch: 11 }, { wch: 10 }, { wch: 8 }];
+    XLSX.utils.book_append_sheet(wb, s1, '库存'); XLSX.utils.book_append_sheet(wb, s2, '出入库记录');
+    XLSX.writeFile(wb, fname + '.xlsx'); toast('已导出 Excel：库存 + 出入库记录');
+  } catch {
+    const csv = '\ufeff' + stockRows.concat([[]], logRows).map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = fname + '.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('已导出 CSV');
+  }
+}
 function logout(msg){
   code = ''; store.set('stock_code', ''); clearInterval(pollTimer);
   $('#home').hidden = true; $('#stock').hidden = true; $('#settings').hidden = true; $('#loginWrap').hidden = false;
