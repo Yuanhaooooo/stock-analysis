@@ -514,6 +514,23 @@ input::placeholder{color:#6A6A6A}
     </div>
   </form>
 
+  <div id="exportPanel" class="panel" hidden>
+    <h2>导出表格</h2>
+    <p class="hint" style="margin:0">表格里有两张表：<b>现有库存</b>（导出时的全部库存）和<b>消耗统计</b>（所选时间内每种材料用了多少，以及每一条取货记录和时间）。</p>
+    <div class="chips" id="exQuick">
+      <button type="button" class="chip" data-r="month" aria-pressed="true">本月</button>
+      <button type="button" class="chip" data-r="last">上个月</button>
+      <button type="button" class="chip" data-r="7">最近 7 天</button>
+      <button type="button" class="chip" data-r="30">最近 30 天</button>
+      <button type="button" class="chip" data-r="year">今年</button>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="exFrom">开始日期</label><input id="exFrom" type="date"></div>
+      <div class="field"><label for="exTo">结束日期（含当天）</label><input id="exTo" type="date"></div>
+    </div>
+    <div class="row"><button type="button" class="btn" id="exCancel">取消</button><button type="button" class="btn primary" id="exGo">导出 Excel</button></div>
+  </div>
+
   <div class="viz">
     <section class="vcard donut"><h2>本月材料消耗比例</h2><p class="vsub" id="useSub">按品类</p><svg viewBox="0 0 360 290" id="useDonut" role="img" aria-label="本月材料消耗比例"></svg></section>
     <section class="vcard donut"><h2>剩余材料占比</h2><p class="vsub" id="leftSub">按品类</p><svg viewBox="0 0 360 290" id="leftDonut" role="img" aria-label="剩余材料占比"></svg></section>
@@ -1336,40 +1353,76 @@ $('#settings').addEventListener('submit', async e => {
   $('#settings').hidden = true;
 });
 $('#logoutBtn').addEventListener('click', () => logout(''));
-$('#exportBtn').addEventListener('click', exportAll);
+const dstr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function setRange(r){
+  const n = new Date(); let f, t = n;
+  if (r === 'month') f = new Date(n.getFullYear(), n.getMonth(), 1);
+  else if (r === 'last') { f = new Date(n.getFullYear(), n.getMonth() - 1, 1); t = new Date(n.getFullYear(), n.getMonth(), 0); }
+  else if (r === 'year') f = new Date(n.getFullYear(), 0, 1);
+  else f = new Date(n.getFullYear(), n.getMonth(), n.getDate() - (Number(r) - 1));
+  $('#exFrom').value = dstr(f); $('#exTo').value = dstr(t);
+  document.querySelectorAll('#exQuick .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.r === r));
+}
+$('#exportBtn').addEventListener('click', () => { $('#settings').hidden = true; $('#exportPanel').hidden = false; if (!$('#exFrom').value) setRange('month'); $('#exportPanel').scrollIntoView({ block: 'nearest' }); });
+$('#exQuick').addEventListener('click', e => { const c = e.target.closest('[data-r]'); if (c) setRange(c.dataset.r); });
+['#exFrom', '#exTo'].forEach(id => $(id).addEventListener('input', () => document.querySelectorAll('#exQuick .chip').forEach(c => c.setAttribute('aria-pressed', 'false'))));
+$('#exCancel').addEventListener('click', () => { $('#exportPanel').hidden = true; });
+$('#exGo').addEventListener('click', exportAll);
 async function exportAll(){
-  toast('正在准备表格…');
-  let all = null;
-  try { all = await rpc('api_moves_range', { p_code: code, p_from: '2000-01-01T00:00:00Z', p_to: new Date(Date.now() + 86400000).toISOString() }); } catch {}
-  if (!all) all = moves.slice();
-  const n = new Date(), mStart = new Date(n.getFullYear(), n.getMonth(), 1);
-  const used = {}, usedM = {};
-  for (const m of all) if ((m.kind === '取货' || m.kind === '出库') && !m.undone && Number(m.delta) < 0 && m.item_id) {
-    used[m.item_id] = (used[m.item_id] || 0) - Number(m.delta);
-    if (new Date(m.created_at) >= mStart) usedM[m.item_id] = (usedM[m.item_id] || 0) - Number(m.delta);
-  }
+  const fs = $('#exFrom').value, ts = $('#exTo').value;
+  if (!fs || !ts) { toast('请选择开始和结束日期'); return; }
+  let [from, to] = [new Date(fs + 'T00:00:00'), new Date(ts + 'T00:00:00')];
+  if (to < from) [from, to] = [to, from];
+  const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+  $('#exGo').disabled = true; toast('正在准备表格…');
+  let list = null;
+  try { list = await rpc('api_moves_range', { p_code: code, p_from: from.toISOString(), p_to: toEnd.toISOString() }); }
+  catch { list = moves.filter(m => { const t = new Date(m.created_at); return t >= from && t < toEnd; }); toast('只能统计最近的记录：请在数据库运行 upgrade_02_month.sql'); }
   const r2 = x => x === '' || x == null ? '' : +Number(x).toFixed(2);
-  const stockRows = [['分类','材料','规格','编号','记录单位','当前库存','包装单位','每包装折合','约合包装数','总面积(㎡)','总长度(米)','本月消耗','本月消耗面积(㎡)','本月消耗长度(米)','累计消耗','累计消耗面积(㎡)','累计消耗长度(米)','提醒值','单价(元)','单价单位','价格备注','库存金额(元)']]
-    .concat(items.map(i => { const A = isArea(i), sq = i.unit === '㎡', mt = i.unit === '米', um = usedM[i.id] || 0, ua = used[i.id] || 0;
-      return [i.category, i.name, i.spec, i.code, i.unit, r2(i.qty), A ? pack(i) : i.unit, A ? +Number(i.roll_area).toFixed(4) + ' ' + i.unit + '/' + pack(i) : '', A ? r2(rolls(i)) : '',
-        sq ? r2(i.qty) : '', mt ? r2(i.qty) : '', r2(um), sq ? r2(um) : '', mt ? r2(um) : '', r2(ua), sq ? r2(ua) : '', mt ? r2(ua) : '', r2(i.low), hasPrice(i) ? r2(i.price) : '', hasPrice(i) ? '元/' + i.unit : '', i.price_note || '', hasPrice(i) ? r2(value(i)) : '']; }));
   const byId = new Map(items.map(i => [i.id, i]));
-  const logRows = [['记录时间','材料','规格','类型','数量','单位','面积(㎡)','长度(米)','操作后库存','记录人','状态']]
-    .concat(all.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(m => { const it = byId.get(m.item_id), u = it ? it.unit : '';
-      return [stamp(new Date(m.created_at)), it ? it.name : m.item_name, it ? it.spec : '', m.kind, r2(m.delta), u, u === '㎡' ? r2(m.delta) : '', u === '米' ? r2(m.delta) : '', r2(m.qty_after), m.who || '', m.undone ? '已撤销' : '']; }));
-  const fname = `库存_${n.getFullYear()}-${n.getMonth()+1}-${n.getDate()}`;
+  // 表 1：现有库存
+  const stock = [['分类','材料','规格','编号','记录单位','当前库存','包装单位','每包装折合','约合包装数','总面积(㎡)','总长度(米)','提醒值','状态','单价(元)','单价单位','库存金额(元)']]
+    .concat(items.map(i => { const A = isArea(i), st = state(i);
+      return [i.category, i.name, i.spec, i.code, i.unit, r2(i.qty), A ? pack(i) : i.unit, A ? +Number(i.roll_area).toFixed(4) + ' ' + i.unit + '/' + pack(i) : '', A ? r2(rolls(i)) : '',
+        i.unit === '㎡' ? r2(i.qty) : '', i.unit === '米' ? r2(i.qty) : '', r2(i.low), st === 'zero' ? '缺货' : st === 'low' ? '偏少' : '',
+        hasPrice(i) ? r2(i.price) : '', hasPrice(i) ? '元/' + i.unit : '', hasPrice(i) ? r2(value(i)) : '']; }));
+  const sv = items.reduce((s, i) => s + value(i), 0);
+  stock.push([], ['合计', `${items.length} 项材料`, '', '', '', '', '', '', '', r2(items.filter(i => i.unit === '㎡').reduce((s, i) => s + Number(i.qty), 0)), r2(items.filter(i => i.unit === '米').reduce((s, i) => s + Number(i.qty), 0)), '', '', '', '', r2(sv)]);
+  // 表 2：所选时间内的消耗
+  const used = list.filter(m => (m.kind === '取货' || m.kind === '出库') && !m.undone && Number(m.delta) < 0);
+  const agg = new Map();
+  for (const m of used) {
+    const k = m.item_id || m.item_name, it = byId.get(m.item_id);
+    const a = agg.get(k) || { it, name: it ? it.name : m.item_name, q: 0, n: 0, last: null }; a.q -= Number(m.delta); a.n++; a.last = m.created_at; agg.set(k, a);
+  }
+  const rows = [...agg.values()].sort((x, y) => (CATS.indexOf(x.it?.category) - CATS.indexOf(y.it?.category)) || (y.q - x.q));
+  const head = [`统计时间：${dstr(from)} 至 ${dstr(to)}（含当天）`, '', '', `导出时间：${stamp(new Date())}`];
+  const cons = [head, [], ['分类','材料','规格','记录单位','消耗数量','消耗面积(㎡)','消耗长度(米)','约合包装数','包装单位','取货次数','单价(元)','消耗金额(元)','当前库存']]
+    .concat(rows.map(a => { const i = a.it || {}, A = a.it && isArea(i);
+      return [i.category || '已删除', a.name, i.spec || '', i.unit || '', r2(a.q), i.unit === '㎡' ? r2(a.q) : '', i.unit === '米' ? r2(a.q) : '', A ? r2(a.q / Number(i.roll_area)) : '', A ? pack(i) : (i.unit || ''), a.n,
+        a.it && hasPrice(i) ? r2(i.price) : '', a.it && hasPrice(i) ? r2(a.q * Number(i.price)) : '', a.it ? r2(i.qty) : '']; }));
+  cons.push([], ['合计', `${rows.length} 种材料`, '', '', '', r2(rows.filter(a => a.it?.unit === '㎡').reduce((s, a) => s + a.q, 0)), r2(rows.filter(a => a.it?.unit === '米').reduce((s, a) => s + a.q, 0)), '', '', used.length, '',
+    r2(rows.reduce((s, a) => s + (a.it && hasPrice(a.it) ? a.q * Number(a.it.price) : 0), 0)), '']);
+  cons.push([], [], ['取货明细'], ['记录时间','材料','规格','类型','数量','单位','面积(㎡)','长度(米)','操作后库存','记录人']);
+  for (const m of used.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at))) {
+    const it = byId.get(m.item_id), u = it ? it.unit : '', q = -Number(m.delta);
+    cons.push([stamp(new Date(m.created_at)), it ? it.name : m.item_name, it ? it.spec : '', m.kind, r2(q), u, u === '㎡' ? r2(q) : '', u === '米' ? r2(q) : '', r2(m.qty_after), m.who || '']);
+  }
+  if (!rows.length) cons.splice(2, 0, ['这段时间没有取货或出库记录']);
+  const fname = `库存_${dstr(from)}至${dstr(to)}`;
   try {
     if (!window.XLSX) await new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); });
-    const wb = XLSX.utils.book_new(), s1 = XLSX.utils.aoa_to_sheet(stockRows), s2 = XLSX.utils.aoa_to_sheet(logRows);
-    s1['!cols'] = stockRows[0].map((h, i) => ({ wch: i === 1 ? 22 : i === 2 ? 18 : Math.max(9, h.length * 2) }));
-    s2['!cols'] = [{ wch: 17 }, { wch: 22 }, { wch: 18 }, { wch: 7 }, { wch: 10 }, { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 11 }, { wch: 10 }, { wch: 8 }];
-    XLSX.utils.book_append_sheet(wb, s1, '库存'); XLSX.utils.book_append_sheet(wb, s2, '出入库记录');
-    XLSX.writeFile(wb, fname + '.xlsx'); toast('已导出 Excel：库存 + 出入库记录');
+    const wb = XLSX.utils.book_new(), s1 = XLSX.utils.aoa_to_sheet(stock), s2 = XLSX.utils.aoa_to_sheet(cons);
+    s1['!cols'] = stock[0].map((h, i) => ({ wch: i === 1 ? 22 : i === 2 ? 20 : Math.max(9, h.length * 2) }));
+    s2['!cols'] = [17, 22, 20, 8, 10, 12, 12, 11, 9, 9, 9, 12, 10].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, s1, '现有库存'); XLSX.utils.book_append_sheet(wb, s2, '消耗统计');
+    XLSX.writeFile(wb, fname + '.xlsx'); toast(`已导出：现有库存 + ${dstr(from)} 至 ${dstr(to)} 的消耗`);
+    $('#exportPanel').hidden = true;
   } catch {
-    const csv = '\ufeff' + stockRows.concat([[]], logRows).map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const csv = '﻿' + stock.concat([[]], cons).map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    a.download = fname + '.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('已导出 CSV');
-  }
+    a.download = fname + '.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('Excel 组件没加载上，已导出 CSV');
+  } finally { $('#exGo').disabled = false; }
 }
 function logout(msg){
   code = ''; store.set('stock_code', ''); clearInterval(pollTimer);
