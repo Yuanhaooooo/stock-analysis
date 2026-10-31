@@ -541,7 +541,7 @@ input::placeholder{color:#6A6A6A}
  </div>
 </div>
 
-<datalist id="units"><option value="卷"><option value="张"><option value="根"><option value="个"><option value="瓶"><option value="箱"><option value="件"><option value="㎡"></datalist>
+<datalist id="units"><option value="卷"><option value="张"><option value="根"><option value="个"><option value="瓶"><option value="箱"><option value="件"><option value="㎡"><option value="米"></datalist>
 <div id="toast" class="toast" hidden role="status"><span id="toastText"></span><button type="button" id="toastUndo">撤销</button></div>
 
 <script>
@@ -629,16 +629,23 @@ function undoLatest(itemId, kind, delta){
 
 /* ---------- 共用计算 ---------- */
 const label = it => it.name + (it.spec ? '（' + it.spec.split(' ')[0] + '）' : '');
-const isArea = it => Number(it.roll_area) > 0;                      // 按面积（㎡）记录的卷材
+const isArea = it => Number(it.roll_area) > 0;                      // 按最小计量单位（㎡ 或 米）记录
+const pack = it => it.pack_unit || '卷';                              // 原包装单位：卷 / 张 / 根 / 箱
 const rolls = it => isArea(it) ? Number(it.qty) / Number(it.roll_area) : null;
 const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const stamp = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${hhmm(d)}`;
-function specArea(spec){ const m = String(spec || '').match(/(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*m/); return m ? +(m[1] * m[2]).toFixed(4) : null; }
+function specSize(spec){
+  const s = String(spec || '');
+  let m = s.match(/(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*m/); if (m) return { size: +(m[1] * m[2]).toFixed(4), unit: '㎡' };
+  m = s.match(/(\d+(?:\.\d+)?)\s*(?:m|米)\s*\//) || s.match(/^\s*(\d+(?:\.\d+)?)\s*(?:m|米)\s*$/); if (m) return { size: +m[1], unit: '米' };
+  return null;
+}
 function state(it){ const n = Number(it.qty), low = Number(it.low); return n <= 0 ? 'zero' : (n <= low ? 'low' : ''); }
 const value = it => hasPrice(it) ? Number(it.price) * Math.max(0, Number(it.qty)) : 0;
 const isToday = d => { const t = new Date(d), n = new Date(); return t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() && t.getDate() === n.getDate(); };
 function unitClass(it){
-  if (it.unit === '㎡') return 0;
+  if (it.unit === '㎡') return it.pack_unit === '张' ? 1 : 0;
+  if (it.unit === '米') return 2;
   if (it.unit === '张') return 1;
   if (it.unit === '根' || /元\/米/.test(it.price_note || '')) return 2;
   if (it.unit === '卷' && (it.category === '布料' || it.category === '膜/背胶')) return 0;
@@ -891,7 +898,7 @@ function render(){
   }
   list.innerHTML = html;
   for (const k in keep) { const el = document.getElementById(k); if (el) el.value = keep[k]; }
-  list.querySelectorAll('.tn').forEach(t => { const v = Number(t.value); t.nextElementSibling.firstChild.textContent = '−' + (v > 0 ? fmt(v) : (t.classList.contains('area') ? '㎡' : '?')); });
+  list.querySelectorAll('.tn').forEach(t => { const v = Number(t.value); t.nextElementSibling.firstChild.textContent = '−' + (v > 0 ? fmt(v) : (t.dataset.u || '?')); });
   if (focusId) { const el = document.getElementById(focusId); if (el) el.focus(); }
   renderLog();
 }
@@ -899,23 +906,23 @@ function card(it){
   const n = Number(it.qty), st = state(it), id = esc(it.id);
   const badge = st === 'zero' ? '<span class="badge zero">缺货</span>' : st === 'low' ? '<span class="badge low">偏少</span>' : '';
   const meta = [it.spec, it.code].filter(Boolean).map(esc).join(' · ')
-    + (isArea(it) ? `<span class="price">约 ${fmt(+rolls(it).toFixed(1))} 卷 · 每卷 ${fmt(it.roll_area)}㎡</span>` : '')
+    + (isArea(it) ? `<span class="price">约 ${fmt(+rolls(it).toFixed(1))} ${esc(pack(it))} · 每${esc(pack(it))} ${+Number(it.roll_area).toFixed(4)}${esc(it.unit)}</span>` : '')
     + (hasPrice(it) ? `<span class="price">${money(it.price)}/${esc(it.unit)}</span>` : '');
-  const open = openId === it.id, area = isArea(it), sa = !area && it.unit === '卷' ? specArea(it.spec) : null;
+  const open = openId === it.id, area = isArea(it), sa = !area ? specSize(it.spec) : null, U = esc(it.unit), P = esc(pack(it));
   return `<div class="item ${st}" data-id="${id}">
     <div class="main">
       <div class="info"><button class="name" data-act="toggle" aria-expanded="${open}">${esc(it.name)}</button>
         <div class="meta">${meta}${badge}</div></div>
       <div class="qty${fmt(n).length > 4 ? ' long' : ''}">${fmt(n)}<small>${esc(it.unit)}</small></div>
-      <input class="tn${area ? ' area' : ''}" id="tn-${id}" type="number" inputmode="decimal" min="0" step="any" value="${area ? '' : '1'}" placeholder="${area ? '㎡' : ''}" aria-label="${esc(it.name)} 取货数量（${esc(it.unit)}）" ${n > 0 ? '' : 'disabled'}>
+      <input class="tn${area ? ' area' : ''}" id="tn-${id}" data-u="${area ? U : ''}" type="number" inputmode="decimal" min="0" step="any" value="${area ? '' : '1'}" placeholder="${area ? U : ''}" aria-label="${esc(it.name)} 取货数量（${esc(it.unit)}）" ${n > 0 ? '' : 'disabled'}>
       <button class="take" data-act="take" ${n > 0 ? '' : 'disabled'} aria-label="${esc(it.name)} 取货">−1<span>取货</span></button>
     </div>
     ${open ? `<div class="more">
       <div class="line"><input id="amt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${area ? '㎡ 或 卷数' : '数量'}">
-        <button class="btn" data-act="in">入库 ＋${area ? '㎡' : ''}</button>${area ? '<button class="btn" data-act="inroll">入库 ＋整卷</button>' : ''}<button class="btn" data-act="out">出库 −${area ? '㎡' : ''}</button></div>
-      ${area ? `<div class="hint">按面积记录：1 卷 = ${fmt(it.roll_area)} ㎡。取货、出库、盘点都填平方米；整卷来货可填卷数点“入库 ＋整卷”。</div>` : ''}
-      ${sa ? `<div class="line"><span class="hint">规格 ${esc(it.spec)}，每卷 ${fmt(sa)} ㎡</span><button class="btn" data-act="toarea" data-area="${sa}">改为按面积（㎡）记录</button></div>` : ''}
-      <div class="line"><input id="cnt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${fmt(n)}${area ? ' ㎡' : ''}">
+        <button class="btn" data-act="in">入库 ＋${area ? U : ''}</button>${area ? `<button class="btn" data-act="inroll">入库 ＋整${P}</button>` : ''}<button class="btn" data-act="out">出库 −${area ? U : ''}</button></div>
+      ${area ? `<div class="hint">按${it.unit === '米' ? '长度' : '面积'}记录：1 ${P} = ${+Number(it.roll_area).toFixed(4)} ${U}。取货、出库、盘点都填${it.unit === '米' ? '米数' : '平方米'}；整${P}来货可填${P}数点“入库 ＋整${P}”。</div>` : ''}
+      ${sa ? `<div class="line"><span class="hint">规格 ${esc(it.spec)}，每${esc(it.unit)} ${fmt(sa.size)} ${sa.unit}</span><button class="btn" data-act="toarea" data-area="${sa.size}" data-u="${sa.unit}">改为按${sa.unit === '米' ? '米' : '平方米'}记录</button></div>` : ''}
+      <div class="line"><input id="cnt-${id}" type="number" inputmode="decimal" min="0" step="any" placeholder="${fmt(n)}${area ? ' ' + U : ''}">
         <button class="btn" data-act="count">盘点：改成实际数量</button></div>
       <div class="grid2">
         <div class="field"><label for="en-${id}">名称</label><input id="en-${id}" value="${esc(it.name)}"></div>
@@ -943,7 +950,7 @@ function renderLog(){
     const canUndo = !m.undone && m.item_id && m.kind !== '新增';
     return `<li class="${m.undone ? 'undone' : ''}"><time>${ts}</time>
       <span class="n">${esc(byId.has(m.item_id) ? label(byId.get(m.item_id)) : m.item_name)}<br><small>${esc(m.kind)}${m.who ? ' · ' + esc(m.who) : ''} · 剩 ${fmt(m.qty_after)}</small></span>
-      <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}${byId.has(m.item_id) && isArea(byId.get(m.item_id)) ? '<small>㎡</small>' : ''}</span>
+      <span class="d ${d < 0 ? 'neg' : 'pos'}">${d > 0 ? '+' : ''}${fmt(d)}${byId.has(m.item_id) && isArea(byId.get(m.item_id)) ? '<small>' + esc(byId.get(m.item_id).unit) + '</small>' : ''}</span>
       ${canUndo ? `<button class="btn" data-undo="${esc(m.id)}">撤销</button>` : '<span></span>'}</li>`;
   }).join('');
 }
@@ -951,7 +958,7 @@ function renderLog(){
 /* ---------- 操作 ---------- */
 function takeFrom(it){
   const box = document.getElementById('tn-' + it.id), v = Number(box && box.value);
-  if (!(v > 0)) { if (box) { box.value = isArea(it) ? '' : '1'; box.focus(); } toast(isArea(it) ? '请输入这次用掉的平方米' : '请输入要取的数量'); return; }
+  if (!(v > 0)) { if (box) { box.value = isArea(it) ? '' : '1'; box.focus(); } toast(isArea(it) ? `请输入这次用掉多少${it.unit}` : '请输入要取的数量'); return; }
   if (v > Number(it.qty)) { toast(`库存只有 ${fmt(it.qty)} ${it.unit}，不能取 ${fmt(v)}`); return; }
   if (box) box.value = isArea(it) ? '' : '1';
   adjust(it, -v, '取货');
@@ -960,7 +967,7 @@ function takeFrom(it){
 $('#list').addEventListener('input', e => {
   if (!e.target.classList.contains('tn')) return;
   const v = Number(e.target.value), btn = e.target.nextElementSibling;
-  btn.firstChild.textContent = '−' + (v > 0 ? fmt(v) : (e.target.classList.contains('area') ? '㎡' : '?'));
+  btn.firstChild.textContent = '−' + (v > 0 ? fmt(v) : (e.target.dataset.u || '?'));
 });
 $('#list').addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target.classList.contains('tn')) return;
@@ -980,9 +987,10 @@ $('#list').addEventListener('click', e => {
     adjust(it, +(k * Number(it.roll_area)).toFixed(4), '入库'); return;
   }
   if (act === 'toarea') {
-    const a = Number(b.dataset.area); if (!(a > 0)) return;
-    queue(() => rpc('api_set_roll_area', { p_code: code, p_item: id, p_area: a }));
-    toast(`${label(it)} 已改为按面积记录，1 卷 = ${fmt(a)} ㎡`); return;
+    const a = Number(b.dataset.area), u = b.dataset.u || '㎡'; if (!(a > 0)) return;
+    queue(() => rpc('api_set_measure', { p_code: code, p_item: id, p_size: a, p_unit: u })
+      .catch(e => { if (u === '㎡' && /api_set_measure|function|schema/i.test(e.message)) return rpc('api_set_roll_area', { p_code: code, p_item: id, p_area: a }); throw e; }));
+    toast(`${label(it)} 已改为按${u === '米' ? '米' : '平方米'}记录，1 ${it.unit} = ${fmt(a)} ${u}`); return;
   }
   if (act === 'in' || act === 'out') {
     const v = Number(val('amt-'));
@@ -1257,20 +1265,20 @@ async function exportAll(){
     if (new Date(m.created_at) >= mStart) usedM[m.item_id] = (usedM[m.item_id] || 0) - Number(m.delta);
   }
   const r2 = x => x === '' || x == null ? '' : +Number(x).toFixed(2);
-  const stockRows = [['分类','材料','规格','编号','记录单位','当前库存','每卷面积(㎡)','约合卷数','总面积(㎡)','本月消耗','本月消耗面积(㎡)','累计消耗','累计消耗面积(㎡)','提醒值','单价(元)','单价单位','价格备注','库存金额(元)']]
-    .concat(items.map(i => { const A = isArea(i), um = usedM[i.id] || 0, ua = used[i.id] || 0;
-      return [i.category, i.name, i.spec, i.code, i.unit, r2(i.qty), A ? r2(i.roll_area) : '', A ? r2(rolls(i)) : '', A ? r2(i.qty) : '',
-        r2(um), A ? r2(um) : '', r2(ua), A ? r2(ua) : '', r2(i.low), hasPrice(i) ? r2(i.price) : '', hasPrice(i) ? '元/' + i.unit : '', i.price_note || '', hasPrice(i) ? r2(value(i)) : '']; }));
+  const stockRows = [['分类','材料','规格','编号','记录单位','当前库存','包装单位','每包装折合','约合包装数','总面积(㎡)','总长度(米)','本月消耗','本月消耗面积(㎡)','本月消耗长度(米)','累计消耗','累计消耗面积(㎡)','累计消耗长度(米)','提醒值','单价(元)','单价单位','价格备注','库存金额(元)']]
+    .concat(items.map(i => { const A = isArea(i), sq = i.unit === '㎡', mt = i.unit === '米', um = usedM[i.id] || 0, ua = used[i.id] || 0;
+      return [i.category, i.name, i.spec, i.code, i.unit, r2(i.qty), A ? pack(i) : i.unit, A ? +Number(i.roll_area).toFixed(4) + ' ' + i.unit + '/' + pack(i) : '', A ? r2(rolls(i)) : '',
+        sq ? r2(i.qty) : '', mt ? r2(i.qty) : '', r2(um), sq ? r2(um) : '', mt ? r2(um) : '', r2(ua), sq ? r2(ua) : '', mt ? r2(ua) : '', r2(i.low), hasPrice(i) ? r2(i.price) : '', hasPrice(i) ? '元/' + i.unit : '', i.price_note || '', hasPrice(i) ? r2(value(i)) : '']; }));
   const byId = new Map(items.map(i => [i.id, i]));
-  const logRows = [['记录时间','材料','规格','类型','数量','单位','面积(㎡)','操作后库存','记录人','状态']]
-    .concat(all.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(m => { const it = byId.get(m.item_id), A = it && isArea(it);
-      return [stamp(new Date(m.created_at)), it ? it.name : m.item_name, it ? it.spec : '', m.kind, r2(m.delta), it ? it.unit : '', A ? r2(m.delta) : '', r2(m.qty_after), m.who || '', m.undone ? '已撤销' : '']; }));
+  const logRows = [['记录时间','材料','规格','类型','数量','单位','面积(㎡)','长度(米)','操作后库存','记录人','状态']]
+    .concat(all.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(m => { const it = byId.get(m.item_id), u = it ? it.unit : '';
+      return [stamp(new Date(m.created_at)), it ? it.name : m.item_name, it ? it.spec : '', m.kind, r2(m.delta), u, u === '㎡' ? r2(m.delta) : '', u === '米' ? r2(m.delta) : '', r2(m.qty_after), m.who || '', m.undone ? '已撤销' : '']; }));
   const fname = `库存_${n.getFullYear()}-${n.getMonth()+1}-${n.getDate()}`;
   try {
     if (!window.XLSX) await new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); });
     const wb = XLSX.utils.book_new(), s1 = XLSX.utils.aoa_to_sheet(stockRows), s2 = XLSX.utils.aoa_to_sheet(logRows);
     s1['!cols'] = stockRows[0].map((h, i) => ({ wch: i === 1 ? 22 : i === 2 ? 18 : Math.max(9, h.length * 2) }));
-    s2['!cols'] = [{ wch: 17 }, { wch: 22 }, { wch: 18 }, { wch: 7 }, { wch: 10 }, { wch: 6 }, { wch: 10 }, { wch: 11 }, { wch: 10 }, { wch: 8 }];
+    s2['!cols'] = [{ wch: 17 }, { wch: 22 }, { wch: 18 }, { wch: 7 }, { wch: 10 }, { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 11 }, { wch: 10 }, { wch: 8 }];
     XLSX.utils.book_append_sheet(wb, s1, '库存'); XLSX.utils.book_append_sheet(wb, s2, '出入库记录');
     XLSX.writeFile(wb, fname + '.xlsx'); toast('已导出 Excel：库存 + 出入库记录');
   } catch {
